@@ -54,7 +54,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           source jax/bin/activate
-          pytest --cov=pysolver pysolver/tests --junitxml=pytest_results.xml --cov-report=xml --cov-report=html --cov-report=term
+          pytest --cov=. tests --junitxml=pytest_results.xml --cov-report=xml --cov-report=html --cov-report=term
         env:
           COVERAGE_FILE: .coveragerc  # Ensures pytest-cov uses .coveragerc if not automatically detected
 
