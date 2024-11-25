@@ -1,7 +1,6 @@
 # JAX Multigrid Solver for 2D Diffusion
 
 [![CI](https://github.com/davef96/jsolver/actions/workflows/tests.yml/badge.svg)](https://github.com/davef96/jsolver/actions/workflows/tests.yml)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/davef96/jsolver)
 
 Multigrid solver for steady-state diffusion problem of the following form:
 
@@ -35,8 +34,8 @@ The following packages are used to run and test the solver:
 
 ## Usage
 
-Two linear grid objects ([`grid_1d.py`](grid_1d.py)) have to be created to set up the discretized steady-state diffusion problem.
-The solver implementation ([`solver_2d.py`](solver_2d.py)) provides two high-level wrapper functions for convenience (see [API Docs](#api-docs)).
+Two linear grid objects ([`grid_1d.py`](jsolver/grid_1d.py)) have to be created to set up the discretized steady-state diffusion problem.
+The solver implementation ([`solver_2d.py`](jsolver/solver_2d.py)) provides two high-level wrapper functions for convenience (see [API Docs](#api-docs)).
 
 Example (single solver call):
 
