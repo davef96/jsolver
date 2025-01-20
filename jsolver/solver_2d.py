@@ -15,8 +15,56 @@ def solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy=None):
     """
     return solve_2d(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
 
-@partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters'))
-def solve_2d(grid_x, grid_y, *, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_2d_fcycle_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
+
+    See `solve_2d`.
+    """
+    return solve_2d(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy, fcycle=True)
+
+def solve_2d_fixed_fcycle_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and F-cycle multigrid.
+
+    The argument `iters` controls the number of multigrid iterations.
+
+    See `solve_2d`.
+    """
+    return solve_2d_fixed_fcycle(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+
+def solve_2d_fixed_fcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
+
+    The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    See `solve_2d`.
+    """
+    return solve_2d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy, fcycle=True)
+
+def solve_2d_fixed_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`).
+
+    The argument `iters` controls the number of multigrid iterations.
+
+    See `solve_2d`.
+    """
+    return solve_2d_fixed(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+
+def solve_2d_fixed(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations.
+
+    The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    See `solve_2d`.
+    """
+    return solve_2d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+
+@partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
+def solve_2d(grid_x, grid_y, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_xy=None):
     """
     Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
@@ -31,12 +79,14 @@ def solve_2d(grid_x, grid_y, *, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2
     Args:
         grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
         grid_y (grid_1D): Linear grid for y-dimension (row-dimension).
+        fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
         epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
         gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
         fcycle (bool, optional): Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
         nu1 (int, optional): Number of smoothing iterations before `defect` operation. Defaults to `1`.
         nu2 (int, optional): Number of smoothing iterations after `prolongate`. Defaults to `1`.
-        max_iters (int, optional): The maximum number of solver iterations. Defaults to `int32.max`.
+        max_iters_outer (int, optional): The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+        max_iters_inner (int, optional): The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
         phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
         rhs (jax.Array): Right-hand side of the equation.
         lam (float or jax.Array): `lambda` (either constant or spatially-varying decay rate).
@@ -51,7 +101,7 @@ def solve_2d(grid_x, grid_y, *, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2
     Raises:
         ValueError: If either grid is not linear, or the grid resolution is not a power of 2 or not efficient for multigrid configuration.
     """
-    solver = Solver_2D(grid_x=grid_x, grid_y=grid_y, epsilon=epsilon, gamma=gamma, fcycle=fcycle, nu1=nu1, nu2=nu2, max_iters=max_iters)
+    solver = Solver_2D(grid_x=grid_x, grid_y=grid_y, fixed=fixed, epsilon=epsilon, gamma=gamma, fcycle=fcycle, nu1=nu1, nu2=nu2, max_iters_outer=max_iters_outer, max_iters_inner=max_iters_inner)
     return solver.solve(phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
 
 class Solver_2D:
@@ -62,24 +112,28 @@ class Solver_2D:
     Note that all methods are impure due to the implicit `self` parameter and thus not (directly) compatible with JAX's transformations.
     """
 
-    def __init__(self, grid_x, grid_y, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters=np.iinfo(np.int32).max):
+    def __init__(self, grid_x, grid_y, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
         """
         Initialize members for solver configuration and compute important constants.
 
         Args:
             grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
             grid_y (grid_1D): Linear grid for y-dimension (row-dimension).
+            fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The solver is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
             epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
             gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
             fcycle (bool, optional): Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
             nu1 (int, optional): Number of smoothing iterations before `defect` operation. Defaults to `1`.
             nu2 (int, optional): Number of smoothing iterations after `prolongate`. Defaults to `1`.
-            max_iters (int, optional): The maximum number of solver iterations. Defaults to `int32.max`.
+            max_iters_outer (int, optional): The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+            max_iters_inner (int, optional): The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
 
         Raises:
             ValueError: If either grid is not linear, or the grid resolution is not a power of 2 or not efficient for multigrid configuration.
         """
-        self.max_iters = max_iters
+        self.fixed = fixed
+        self.max_iters_outer = max_iters_outer
+        self.max_iters_inner = max_iters_inner
         self.epsilon = epsilon
         self.gamma = gamma
         self.fcycle = fcycle
@@ -254,21 +308,31 @@ class Solver_2D:
         self.off_diag_diffusion = D_xy is not None and phi.shape == D_xy.shape
         self.scalar_lambda = not lam.shape == phi.shape
 
+        #if not phi.dtype == jnp.float64:
+        #    raise ValueError("Incorrect configuration: dtype must be 'jnp.float64' but is '{phi.dtype}'.")
+
+        #if not phi.shape == rhs.shape:
+        #    raise ValueError(f"Shape mismatch phi {phi.shape} vs. rhs {rhs.shape}.")
+
         self.compute_discretization(lam, D_xx, D_yy, D_xy)
 
-        def cond(arg):
-            phi, count, dist = arg
-            return jnp.logical_and(dist > self.epsilon, count < self.max_iters)
+        if self.fixed:
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_routine(do_BCs(phi), rhs, self.fcycle), phi)
+            count = self.max_iters_outer
+        else:
+            def cond(arg):
+                phi, count, dist = arg
+                return jnp.logical_and(dist > self.epsilon, count < self.max_iters_outer)
 
-        def body(arg):
-            phi, count, dist = arg
-            distance = partial(self.distance, phi)
-            phi = self.multigrid_routine(do_BCs(phi), rhs, self.fcycle)
-            dist = distance(phi)
-            #jax.debug.print("count: {}, dist = {}", count, dist)
-            return (phi, count + 1, dist)
+            def body(arg):
+                phi, count, dist = arg
+                distance = partial(self.distance, phi)
+                phi = self.multigrid_routine(do_BCs(phi), rhs, self.fcycle)
+                dist = distance(phi)
+                #jax.debug.print("count: {}, dist = {}", count, dist)
+                return (phi, count + 1, dist)
 
-        phi, count, dist = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
+            phi, count, dist = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
 
         return phi, count
 
@@ -343,6 +407,7 @@ class Solver_2D:
         Recursive multigrid routine.
 
         Behavior is controlled by members:
+            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
             self.nu1 (int): Smoothing iterations before `defect` / restriction operation.
             self.nu2 (int): Smoothing iterations after `prolongate`.
             self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
@@ -357,24 +422,29 @@ class Solver_2D:
             phi (jax.Array): New value for the unknown `phi`.
         """
         if level == self.levels - 1:
-            def cond(arg):
-                phi, dist = arg
-                return dist > self.epsilon
+            if self.fixed:
+                phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+            else:
+                def cond(arg):
+                    phi, count, dist = arg
+                    return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
 
-            def body(arg):
-                phi, dist = arg
-                distance = partial(self.distance, phi)
-                phi = self.RedBlackGaussSeidel(phi, rhs, level)
-                return (phi, distance(phi))
+                def body(arg):
+                    phi, count, dist = arg
+                    distance = partial(self.distance, phi)
+                    phi = self.red_black_gauss_seidel(phi, rhs, level)
+                    dist = distance(phi)
+                    #jax.debug.print("coarsest level -- count: {}, dist = {}", count, dist)
+                    return (phi, count + 1, dist)
 
-            phi, _ = jax.lax.while_loop(cond, body, (phi, jnp.inf))
+                phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
         else:
-            phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.RedBlackGaussSeidel(phi, rhs, level), phi)
+            phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
             rhs_c = self.defect(phi, rhs, level)
             if fcycle:
                 phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, True, level + 1), jnp.full(self.arr_shape[level + 1], 0.))
             phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, False, level + 1), jnp.full(self.arr_shape[level + 1], 0.))
-            phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.RedBlackGaussSeidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
+            phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
 
         return phi
 
@@ -428,7 +498,7 @@ class Solver_2D:
 
         return corr
 
-    def RedBlackGaussSeidel(self, phi, rhs, level):
+    def red_black_gauss_seidel(self, phi, rhs, level):
         """
         Red-Black Gauss-Seidel routine for smoothing, i.e. reducing high-frequency errors.
 

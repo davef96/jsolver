@@ -5,11 +5,17 @@ from jax.test_util import check_grads
 import pytest
 import time
 from jsolver.grid_1d import grid_1D
-from jsolver.solver_2d import solve_2d_simple, solve_2d
+from jsolver.solver_2d import solve_2d_fcycle_simple, solve_2d_fixed_fcycle_simple, solve_2d_fixed_simple, solve_2d_simple, solve_2d
 
-jax.config.update('jax_enable_x64', True)
-check_autodiff = True # done for all tests
-check_gamma_f = True # only done for test1
+# already done in 'solver_2d.py'
+#jax.config.update('jax_enable_x64', True)
+
+# some configuration
+check_autodiff_fwd = True # done for all tests
+check_autodiff_rev = True # currently, only done for test1 (if 'check_fixed' is also True)
+check_fixed = True # fixed number of iterations; currently, only done for test1
+check_w     = True # W-cycle (gamma=2); currently, only done for test1
+check_f     = True # F-cycle; currently, only done for test1
 
 @jax.jit
 def rmse(phi_ana, phi_res):
@@ -163,16 +169,41 @@ def test1(setup, test1_setup, grad_func_solve):
     assert iterations == 13
     assert pytest.approx(1.010315424011278e-06, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
-    if check_gamma_f:
-        phi_res, iterations = solve_2d(gamma=2, fcycle=True, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
+    if check_f:
+        phi_res, iterations = solve_2d_fcycle_simple(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
         assert iterations <= 13
         assert pytest.approx(1.010315424011278e-06, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
+    if check_w:
+        phi_res, iterations = solve_2d(gamma=2, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
+        assert iterations <= 13
+        assert pytest.approx(1.010315424011278e-06, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_fixed:
+        curr_time = time.time()
+        phi_res_fixed, iterations_fixed = solve_2d_fixed_simple(iters=13, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
+        print("solve_fixed took {} s".format(time.time() - curr_time))
+        assert iterations_fixed == 13
+        assert pytest.approx(1.010315424011278e-06, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res_fixed)
+
+        if check_f:
+            phi_res, iterations = solve_2d_fixed_fcycle_simple(iters=13, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
+            assert iterations <= 13
+            assert pytest.approx(1.010315424011278e-06, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+        if check_autodiff_rev:
+            def gsolve_rev(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+                phi_res, _ = solve_2d_fixed_simple(iters=13, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+                return phi_res
+
+            curr_time = time.time()
+            check_grads(gsolve_rev, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["rev"])
+            print("check_grads(gsolve_rev, ...) took {} s".format(time.time() - curr_time))
 
 def test1_64(setup_64, test1_setup_64, grad_func_solve_64):
     grid_x, grid_y, phi, acceptable_error_abs, acceptable_error_rel = setup_64
@@ -186,7 +217,7 @@ def test1_64(setup_64, test1_setup_64, grad_func_solve_64):
     assert iterations == 13
     assert pytest.approx(4.010172727197344e-06, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -203,7 +234,7 @@ def test1_64_128(setup_64_128, test1_setup_64_128, grad_func_solve_64_128):
     assert iterations == 27
     assert pytest.approx(4.025383882544280e-06, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -246,7 +277,7 @@ def test2(setup, test2_setup, grad_func_solve):
     assert iterations == 14
     assert pytest.approx(2.490588070275737e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -263,7 +294,7 @@ def test2_64(setup_64, test2_setup_64, grad_func_solve_64):
     assert iterations == 14
     assert pytest.approx(9.886612163935591e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -280,7 +311,7 @@ def test2_64_128(setup_64_128, test2_setup_64_128, grad_func_solve_64_128):
     assert iterations == 28
     assert pytest.approx(6.202644125853758e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -325,7 +356,7 @@ def test3(setup, test3_setup, grad_func_solve):
     assert iterations == 41
     assert pytest.approx(2.197736631958706e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -342,7 +373,7 @@ def test3_64(setup_64, test3_setup_64, grad_func_solve_64):
     assert iterations == 35
     assert pytest.approx(8.725944838558505e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -359,7 +390,7 @@ def test3_64_128(setup_64_128, test3_setup_64_128, grad_func_solve_64_128):
     assert iterations == 77
     assert pytest.approx(5.910207160483823e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -405,7 +436,7 @@ def test4(setup, test4_setup, grad_func_solve):
     assert iterations == 468
     assert pytest.approx(2.179081815661214e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -422,7 +453,7 @@ def test4_64(setup_64, test4_setup_64, grad_func_solve_64):
     assert iterations == 228
     assert pytest.approx(8.596967777404521e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -439,7 +470,7 @@ def test4_64_128(setup_64_128, test4_setup_64_128, grad_func_solve_64_128):
     assert iterations == 796
     assert pytest.approx(5.979198934671856e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -484,7 +515,7 @@ def test5(setup, test5_setup, grad_func_solve):
     assert iterations == 208
     assert pytest.approx(2.483558318071642e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -501,7 +532,7 @@ def test5_64(setup_64, test5_setup_64, grad_func_solve_64):
     assert iterations == 205
     assert pytest.approx(9.858702741615382e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -518,7 +549,7 @@ def test5_64_128(setup_64_128, test5_setup_64_128, grad_func_solve_64_128):
     assert iterations == 107
     assert pytest.approx(9.823336470021998e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -567,7 +598,7 @@ def test7(setup, test7_setup, grad_func_solve):
     assert iterations == 466
     assert pytest.approx(2.291672360185362e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -584,7 +615,7 @@ def test7_64(setup_64, test7_setup_64, grad_func_solve_64):
     assert iterations == 226
     assert pytest.approx(8.920084594712214e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -601,7 +632,7 @@ def test7_64_128(setup_64_128, test7_setup_64_128, grad_func_solve_64_128):
     assert iterations == 794
     assert pytest.approx(6.078926956740372e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -650,7 +681,7 @@ def test9(setup, test9_setup, grad_func_solve):
     assert iterations == 462
     assert pytest.approx(2.719754537531388e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -667,7 +698,7 @@ def test9_64(setup_64, test9_setup_64, grad_func_solve_64):
     assert iterations == 224
     assert pytest.approx(1.073853922527805e-04, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -684,7 +715,7 @@ def test9_64_128(setup_64_128, test9_setup_64_128, grad_func_solve_64_128):
     assert iterations == 785
     assert pytest.approx(7.061117869397386e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -733,7 +764,7 @@ def test10(setup, test10_setup, grad_func_solve):
     assert iterations == 41
     assert pytest.approx(2.317202758890556e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -750,7 +781,7 @@ def test10_64(setup_64, test10_setup_64, grad_func_solve_64):
     assert iterations == 34
     assert pytest.approx(9.205560538691322e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -767,7 +798,7 @@ def test10_64_128(setup_64_128, test10_setup_64_128, grad_func_solve_64_128):
     assert iterations == 33
     assert pytest.approx(6.674092567109719e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -830,7 +861,7 @@ def test11(setup, test11_setup, grad_func_solve):
     assert iterations == 56
     assert pytest.approx(3.881907960699822e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -847,7 +878,7 @@ def test11_64(setup_64, test11_setup_64, grad_func_solve_64):
     assert iterations == 53
     assert pytest.approx(1.541913423109781e-04, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
@@ -864,7 +895,7 @@ def test11_64_128(setup_64_128, test11_setup_64_128, grad_func_solve_64_128):
     assert iterations == 155
     assert pytest.approx(1.008028166210623e-04, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
-    if check_autodiff:
+    if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_xy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))

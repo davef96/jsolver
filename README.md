@@ -13,9 +13,9 @@ Multigrid solver for steady-state diffusion problem of the following form:
 - `lambda`: decay rate
 - `rhs`: source density
 
-The solver is implemented in `Python` using [`jax`](https://github.com/jax-ml/jax) to support automatic differentiation and to speed up the solver for *many* repeated evaluations. Note that the *first* solver or [`jax.jvp`](https://jax.readthedocs.io/en/latest/_autosummary/jax.jvp.html) call will be extremely slow due to just-in-time compilation. After that, the solver or `jax.jvp` routine can be called with different arguments *of the same shape* without triggering recompilation.
+The solver is implemented in [`Python`](https://www.python.org/) using [`jax`](https://github.com/jax-ml/jax) to support automatic differentiation and to speed up the solver for *many* repeated evaluations. Note that the *first* solver, [`jax.jvp`](https://jax.readthedocs.io/en/latest/_autosummary/jax.jvp.html), or [`jax.vjp`](https://jax.readthedocs.io/en/latest/_autosummary/jax.vjp.html) call will be extremely slow due to just-in-time compilation. After that, the respective routine can be called with different arguments *of the same shape* without triggering recompilation.
 
-Note that reverse-mode automatic differentiation is **not** supported since the solver algorithm relies on a while loop of the form `while distance > epsilon`, where `distance` is a *dynamic value* (i.e. it is traced by `jax` since it is computed by `jax` functions) and thus the loop must be implemented in terms of [`jax.lax.while_loop`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.while_loop.html) to be compatible with [`jax.jit`](https://jax.readthedocs.io/en/latest/_autosummary/jax.jit.html).
+Note that reverse-mode automatic differentiation (e.g. `jax.vjp`) is supported **only if** a *fixed* number of solver iterations is used. Reason: the *dynamic* solver implementation relies on a while loop of the form `while distance > epsilon`, where `distance` is a *dynamic value* (i.e. it is *traced* by `jax` since it is computed by `jax` functions) and thus the loop must be implemented in terms of [`jax.lax.while_loop`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.while_loop.html) to be compatible with [`jax.jit`](https://jax.readthedocs.io/en/latest/_autosummary/jax.jit.html). The *fixed* solver implementation uses a [`jax.lax.fori_loop`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.fori_loop.html) instead.
 
 ## Installation
 
@@ -35,9 +35,9 @@ The following packages are used to run and test the solver:
 ## Usage
 
 Two linear grid objects ([`grid_1d.py`](jsolver/grid_1d.py)) have to be created to set up the discretized steady-state diffusion problem.
-The solver implementation ([`solver_2d.py`](jsolver/solver_2d.py)) provides two high-level wrapper functions for convenience (see [API Docs](#api-docs)).
+The solver implementation ([`solver_2d.py`](jsolver/solver_2d.py)) provides some high-level wrapper functions for convenience (see [API Docs](#api-docs)).
 
-Example (single solver call):
+Example (single solver call for `problem 1`):
 
 ```python
 import numpy as np
@@ -67,10 +67,16 @@ phi_res, iterations = solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy)
 
 This example can be found in [`example.py`](examples/example.py).
 
-Note that the computations for the problem setup are done using `numpy` (instead of `jax.numpy`) since it is much faster when only called once.
-The arrays will be implicitly promoted to `jax.Array`s for the internal solver implementation upon invocation.
+The following plot shows heatmaps for the computed arrays; `abs_err` represents `abs(phi_res - phi_ana)`.
 
-For further examples see [`benchmark.py`](examples/benchmark.py) (also includes `jax.jvp` calls) and [`test_solver_2d.py`](tests/test_solver_2d.py).
+![Problem 1 Heatmaps](data/heatmap_problem_1_128x128.gif)
+
+Note that the computations for the problem setup are done using `numpy` (instead of `jax.numpy`) since it is much faster when only called once.
+The arrays will be implicitly promoted to [`jax.Array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html)s for the internal solver implementation upon invocation.
+
+Also note that importing `solver_2d` will call `jax.config.update('jax_enable_x64', True)`, which sets the default `dtype` for all `jax` operations to double precision floating point numbers.
+
+For further examples see [`benchmark.py`](examples/benchmark.py) (also includes `jax.jvp` and `jax.vjp` calls) and [`test_solver_2d.py`](tests/test_solver_2d.py).
 
 <a id="api-docs"></a>
 
@@ -92,7 +98,7 @@ Note that `<module_name>` must **not** contain the `.py` ending.
 
 The tests can be run manually by using `pytest tests`. It is possible to run only a specific test for a specific file: e.g. `pytest tests/test_solver_2d.py::test1`. A coverage report can be created by adding the option `--cov=.`.
 
-Note that the acceptable bounds are set relatively tight (for some problems). On a different system (hardware or installed library versions) you may have to change `acceptable_error_abs` or `acceptable_error_rel` for the `setup` routines in [`test_solver_2d.py`](tests/test_solver_2d.py).
+Note that the acceptable bounds are set relatively tight (for some tests). On a different system (hardware or installed library versions) you may have to change `acceptable_error_abs` or `acceptable_error_rel` for the `setup` routines in [`test_solver_2d.py`](tests/test_solver_2d.py).
 
 ## Performance
 
@@ -100,7 +106,7 @@ Since `jax` is primarily designed for execution on accelerators (GPUs and TPUs),
 
 ### CPU vs. GPU
 
-The following speedup was observed when using a [NVIDIA GeForce RTX 2070S](https://www.techpowerup.com/gpu-specs/geforce-rtx-2070-super.c3440) GPU compared to the [CPU-only setting described below](#execution-time-of-compiled-functions-cpu) (resolution set to `128`).
+The following speedup was observed when using a [NVIDIA GeForce RTX 2070S](https://www.techpowerup.com/gpu-specs/geforce-rtx-2070-super.c3440) GPU compared to the [CPU-only setting described below](#execution-time-of-compiled-functions-cpu) for a resolution of `128`.
 
 ![Speedup gpu_resolution128](data/speedup_gpu_res128.svg)
 
@@ -108,7 +114,7 @@ The speedup will be much larger for higher resolutions. Here, for resolutions be
 
 ![Speedup_vs_resolution_problem1](data/p1_solve_speedup.svg)
 
-The plot shows how speedup scales with resolution for problem 1 solver calls. Qualitatively, it looks about the same for `jax.jvp` calls. However, note that you may run into [memory issues on GPU](#memory-allocation-gpu).
+The plot shows how speedup scales with resolution for `problem 1` solver calls. Qualitatively, it looks about the same for `jax.jvp`, and similar for `jax.vjp` calls. However, note that you may run into [memory issues on GPU](#memory-allocation-gpu).
 
 <a id="execution-time-of-compiled-functions-cpu"></a>
 
@@ -123,7 +129,7 @@ import os
 os.environ["XLA_FLAGS"] = '--xla_cpu_use_thunk_runtime=false'
 ```
 
-The following plot shows the speedup of setting this flag to `false` for a system with `jaxlib==0.4.35` and an [AMD Ryzen Threadripper 2950X](https://en.wikichip.org/wiki/amd/ryzen_threadripper/2950x) CPU (resolution set to `128`).
+The following plot shows the speedup of setting this flag to `false` for a system with `jaxlib==0.4.35` and an [AMD Ryzen Threadripper 2950X](https://en.wikichip.org/wiki/amd/ryzen_threadripper/2950x) CPU for a resolution of `128`.
 
 ![Speedup when xla_cpu_use_thunk_runtime is set to false resolution 128](data/speedup_xlaflag_res128.svg)
 
@@ -131,17 +137,13 @@ The following plot shows the speedup of setting this flag to `false` for a syste
 
 ### Memory Allocation (GPU)
 
-For larger resolutions (e.g. `>4096`) you might encounter some form of "out of memory" (OOM) error, which may be avoidable by choosing a different memory allocation strategy. The page [gpu memory allocation](https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html) shows three environment variables that can be used to control the memory allocation behavior. While setting `XLA_PYTHON_CLIENT_ALLOCATOR=platform` does reduce performance, it does *not* seem to be as drastic as described on the page for this use case. Note that even the [NVIDIA Titan RTX](https://www.techpowerup.com/gpu-specs/titan-rtx.c3311) with its `24 GB` of memory was unable to run any of the problems for a resolution of `16384`. For more details, look at the corresponding memory consumption plots below.
+For larger resolutions (e.g. `>4096`) you might encounter some form of "out of memory" (OOM) error, which may be avoidable by choosing a different memory allocation strategy. The page [gpu memory allocation](https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html) shows three environment variables that can be used to control the memory allocation behavior. While setting `XLA_PYTHON_CLIENT_ALLOCATOR=platform` does reduce performance, it does *not* seem to be as drastic as described on the page for this use case. Note that even the [NVIDIA Titan RTX](https://www.techpowerup.com/gpu-specs/titan-rtx.c3311) with its `24 GB` of memory was unable to solve any of the problems for a resolution of `16384`. For more details, look at the corresponding memory consumption plots below.
 
 ### Memory Consumption
 
-A lot of memory is consumed with larger resolutions. The following plot illustrates the observed behavior of running a solver and `jax.jvp` call for problem 1 on CPU.
+A lot of memory is consumed with larger resolutions.
 
-![Memory consumption problem 1 including jvp](data/p1_cpu_xlaflag_mem.svg)
-
-However, since peak memory consumption strongly depends on the exact behavior of the garbage collector, this might not be a *tight* upper bound on the memory requirement.
-
-Reasonable lower bounds were obtained by using [AOT compilation](https://jax.readthedocs.io/en/latest/aot.html) and using [memory analysis](https://jax.readthedocs.io/en/latest/jax.stages.html#jax.stages.Compiled.memory_analysis) to obtain estimated memory requirements. Note that they are still very platform dependent.
+Since peak memory consumption strongly depends on the exact behavior of the garbage collector, actual measurements might not yield a *tight* upper bound on the memory requirement. Reasonable lower bounds were obtained by using [AOT compilation](https://jax.readthedocs.io/en/latest/aot.html) and [memory analysis](https://jax.readthedocs.io/en/latest/jax.stages.html#jax.stages.Compiled.memory_analysis) to obtain estimated memory requirements. Note that they are still very platform dependent. The following plots illustrate these results for `problem 1`.
 
 Result for CPU:
 
@@ -149,11 +151,15 @@ Result for CPU:
 
 ![Memory requirements problem 1 jvp CPU](data/p1_jvp_cpu_xlaflag_mem_req.svg)
 
+![Memory requirements problem 1 vjp CPU](data/p1_vjp_cpu_xlaflag_mem_req.svg)
+
 Result for GPU (2070S):
 
-![Memory requirements problem 1 solve GPU](data/p1_solve_gpu_mem_req.svg)
+![Memory requirements problem 1 solve GPU (2070S)](data/p1_solve_gpu_mem_req.svg)
 
-![Memory requirements problem 1 jvp GPU](data/p1_jvp_gpu_mem_req.svg)
+![Memory requirements problem 1 jvp GPU (2070S)](data/p1_jvp_gpu_mem_req.svg)
+
+![Memory requirements problem 1 vjp GPU (2070S)](data/p1_vjp_gpu_mem_req.svg)
 
 ### Compilation Time
 
@@ -166,11 +172,11 @@ jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 ```
 
-Note that the compilation time is extremely high compared to the execution time *after* a warm-up run since the multigrid setup introduces many instructions (different array shapes on each level).
+Note that, unless the solver performs a very large number of iterations or the resolution is very high, the compilation time is extremely high compared to the execution time of a *repeated* run since the multigrid setup introduces many instructions (different array shapes on each level).
 
-The following plots show the execution time *of* a warm-up run for problem 1:
+The following plots illustrate the ratio between warm-up run and repeated runs:
 
-![Warmup solve](data/p1_solve_warmup.svg)
+![Warmup ratio CPU](data/p1_cpu_xlaflag_warmup_ratio.svg)
 
-![Warmup jvp](data/p1_jvp_warmup.svg)
+![Warmup ratio GPU (2070S)](data/p1_gpu_warmup_ratio.svg)
 

@@ -14,23 +14,135 @@ Simplified, functionally pure wrapper function with positional arguments.
 
 See `solve_2d`.
 
+<a id="solver_2d.solve_2d_fcycle_simple"></a>
+
+#### solve\_2d\_fcycle\_simple
+
+```python
+def solve_2d_fcycle_simple(grid_x,
+                           grid_y,
+                           phi,
+                           rhs,
+                           lam,
+                           D_xx,
+                           D_yy,
+                           D_xy=None)
+```
+
+Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
+
+See `solve_2d`.
+
+<a id="solver_2d.solve_2d_fixed_fcycle_simple"></a>
+
+#### solve\_2d\_fixed\_fcycle\_simple
+
+```python
+def solve_2d_fixed_fcycle_simple(grid_x,
+                                 grid_y,
+                                 iters,
+                                 phi,
+                                 rhs,
+                                 lam,
+                                 D_xx,
+                                 D_yy,
+                                 D_xy=None)
+```
+
+Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and F-cycle multigrid.
+
+The argument `iters` controls the number of multigrid iterations.
+
+See `solve_2d`.
+
+<a id="solver_2d.solve_2d_fixed_fcycle"></a>
+
+#### solve\_2d\_fixed\_fcycle
+
+```python
+def solve_2d_fixed_fcycle(grid_x,
+                          grid_y,
+                          iters_outer,
+                          iters_inner,
+                          phi,
+                          rhs,
+                          lam,
+                          D_xx,
+                          D_yy,
+                          D_xy=None)
+```
+
+Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
+
+The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+See `solve_2d`.
+
+<a id="solver_2d.solve_2d_fixed_simple"></a>
+
+#### solve\_2d\_fixed\_simple
+
+```python
+def solve_2d_fixed_simple(grid_x,
+                          grid_y,
+                          iters,
+                          phi,
+                          rhs,
+                          lam,
+                          D_xx,
+                          D_yy,
+                          D_xy=None)
+```
+
+Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`).
+
+The argument `iters` controls the number of multigrid iterations.
+
+See `solve_2d`.
+
+<a id="solver_2d.solve_2d_fixed"></a>
+
+#### solve\_2d\_fixed
+
+```python
+def solve_2d_fixed(grid_x,
+                   grid_y,
+                   iters_outer,
+                   iters_inner,
+                   phi,
+                   rhs,
+                   lam,
+                   D_xx,
+                   D_yy,
+                   D_xy=None)
+```
+
+Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations.
+
+The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+See `solve_2d`.
+
 <a id="solver_2d.solve_2d"></a>
 
 #### solve\_2d
 
 ```python
 @partial(jax.jit,
-         static_argnames=('grid_x', 'grid_y', 'epsilon', 'gamma', 'fcycle',
-                          'nu1', 'nu2', 'max_iters'))
+         static_argnames=('grid_x', 'grid_y', 'fixed', 'epsilon', 'gamma',
+                          'fcycle', 'nu1', 'nu2', 'max_iters_outer',
+                          'max_iters_inner'))
 def solve_2d(grid_x,
              grid_y,
              *,
+             fixed=False,
              epsilon=1e-12,
              gamma=1,
              fcycle=False,
              nu1=1,
              nu2=1,
-             max_iters=np.iinfo(np.int32).max,
+             max_iters_outer=np.iinfo(np.int32).max,
+             max_iters_inner=np.iinfo(np.int32).max,
              phi,
              rhs,
              lam,
@@ -53,12 +165,14 @@ All arrays must be two-dimensional and of the same shape.
 
 - `grid_x` _grid_1D_ - Linear grid for x-dimension (column-dimension).
 - `grid_y` _grid_1D_ - Linear grid for y-dimension (row-dimension).
+- `fixed` _bool, optional_ - Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
 - `epsilon` _float, optional_ - Solver termination threshold. Defaults to `1e-12`.
 - `gamma` _int, optional_ - Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
 - `fcycle` _bool, optional_ - Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
 - `nu1` _int, optional_ - Number of smoothing iterations before `defect` operation. Defaults to `1`.
 - `nu2` _int, optional_ - Number of smoothing iterations after `prolongate`. Defaults to `1`.
-- `max_iters` _int, optional_ - The maximum number of solver iterations. Defaults to `int32.max`.
+- `max_iters_outer` _int, optional_ - The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+- `max_iters_inner` _int, optional_ - The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
 - `phi` _jax.Array_ - Initial value for the unknown `phi` (usually filled with zeros).
 - `rhs` _jax.Array_ - Right-hand side of the equation.
 - `lam` _float or jax.Array_ - `lambda` (either constant or spatially-varying decay rate).
@@ -97,12 +211,14 @@ Note that all methods are impure due to the implicit `self` parameter and thus n
 ```python
 def __init__(grid_x,
              grid_y,
+             fixed=False,
              epsilon=1e-12,
              gamma=1,
              fcycle=False,
              nu1=1,
              nu2=1,
-             max_iters=np.iinfo(np.int32).max)
+             max_iters_outer=np.iinfo(np.int32).max,
+             max_iters_inner=np.iinfo(np.int32).max)
 ```
 
 Initialize members for solver configuration and compute important constants.
@@ -111,12 +227,14 @@ Initialize members for solver configuration and compute important constants.
 
 - `grid_x` _grid_1D_ - Linear grid for x-dimension (column-dimension).
 - `grid_y` _grid_1D_ - Linear grid for y-dimension (row-dimension).
+- `fixed` _bool, optional_ - Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The solver is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
 - `epsilon` _float, optional_ - Solver termination threshold. Defaults to `1e-12`.
 - `gamma` _int, optional_ - Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
 - `fcycle` _bool, optional_ - Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
 - `nu1` _int, optional_ - Number of smoothing iterations before `defect` operation. Defaults to `1`.
 - `nu2` _int, optional_ - Number of smoothing iterations after `prolongate`. Defaults to `1`.
-- `max_iters` _int, optional_ - The maximum number of solver iterations. Defaults to `int32.max`.
+- `max_iters_outer` _int, optional_ - The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+- `max_iters_inner` _int, optional_ - The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
   
 
 **Raises**:
@@ -351,6 +469,7 @@ Recursive multigrid routine.
 
 **Behavior of members**:
 
+- `self.fixed` _bool_: Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
 - `self.nu1` _int_ - Smoothing iterations before `defect` / restriction operation.
 - `self.nu2` _int_ - Smoothing iterations after `prolongate`.
 - `self.gamma` _int_ - Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
@@ -410,12 +529,12 @@ Interpolate the correction computed on a coarser grid into a finer grid.
 
 - `corr` _jax.Array_ - Interpolated correction (to be added to the current value of `phi` on the finer grid).
 
-<a id="solver_2d.Solver_2D.RedBlackGaussSeidel"></a>
+<a id="solver_2d.Solver_2D.red_black_gauss_seidel"></a>
 
-#### RedBlackGaussSeidel
+#### red\_black\_gauss\_seidel
 
 ```python
-def RedBlackGaussSeidel(phi, rhs, level)
+def red_black_gauss_seidel(phi, rhs, level)
 ```
 
 Red-Black Gauss-Seidel routine for smoothing, i.e. reducing high-frequency errors.
