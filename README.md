@@ -110,11 +110,11 @@ The following speedup was observed when using a [NVIDIA GeForce RTX 2070S](https
 
 ![Speedup gpu_resolution128](data/speedup_gpu_res128.svg)
 
-The speedup will be much larger for higher resolutions. Here, for resolutions below `128` the CPU seems to be faster.
+The speedup will be much larger for higher resolutions.
 
 ![Speedup_vs_resolution_problem1](data/p1_solve_speedup.svg)
 
-The plot shows how speedup scales with resolution for `problem 1` solver calls. Qualitatively, it looks about the same for `jax.jvp`, and similar for `jax.vjp` calls. However, note that you may run into [memory issues on GPU](#memory-allocation-gpu).
+The plot shows how speedup scales with resolution for `problem 1` solver calls. In this particular configuration, the CPU version appears to be faster for resolutions below `128`. Qualitatively, the graph looks about the same for `jax.jvp`, and similar for `jax.vjp` calls. However, note that you may run into [memory issues on GPU](#memory-allocation-gpu).
 
 <a id="execution-time-of-compiled-functions-cpu"></a>
 
