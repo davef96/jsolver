@@ -39,7 +39,7 @@ install_requires.extend([
 
 setup(
     name="jsolver",
-    version="0.1",
+    version="0.2.0",
     packages=find_packages(),
     install_requires=install_requires,
 )

@@ -20,10 +20,13 @@ D_xx = 1.0
 D_yy = 1.0
 phi = np.zeros(arr_shape)
 lam = 0.
-sx = np.sin(np.pi * grid_x.centers)[np.newaxis]
-sy = np.sin(np.pi * grid_y.centers)[:, np.newaxis]
-phi_ana = sx * sy
-rhs = -(np.pi ** 2) * (D_xx + D_yy) * phi_ana
+x = grid_x.centers[np.newaxis]
+y = grid_y.centers[:, np.newaxis]
+ox = 1. - x
+oy = 1. - y
+prod = y * oy
+phi_ana = x * ox ** 3 * prod
+rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
 
 # solve problem
 phi_res, iterations = solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy)
