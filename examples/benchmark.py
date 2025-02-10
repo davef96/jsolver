@@ -753,7 +753,7 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
                 utilization = result["usage"]
 
                 mean_result = np.mean(utilization)
-                mean_result *= psutil.cpu_count(logical=False)
+                mean_result *= psutil.cpu_count(logical=True)
                 results.append(mean_result)
                 samples.append(len(utilization))
 
@@ -1011,7 +1011,7 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Script to benchmark solver and jvp calls.",
+        description="Script to benchmark solver, jvp, and vjp calls.",
         epilog="Example: python benchmark.py --resolution 64 --type 'c' --reps 5"
     )
 
