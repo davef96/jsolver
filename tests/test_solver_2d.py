@@ -176,8 +176,8 @@ def test1(setup, test1_setup, grad_func_solve):
 
     if check_f:
         phi_res, iterations = solve_2d_fcycle_simple(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)
-        assert iterations <= 13
-        assert pytest.approx(1.010315424011278e-06, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+        assert iterations <= 8
+        assert pytest.approx(1.010315414037897e-06, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
     if check_w:
         phi_res, iterations = solve_2d(gamma=2, grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy)

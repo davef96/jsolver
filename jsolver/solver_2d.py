@@ -441,9 +441,10 @@ class Solver_2D:
         else:
             phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
             rhs_c = self.defect(phi, rhs, level)
+            phi_c = jnp.full(self.arr_shape[level + 1], 0.)
             if fcycle:
-                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, True, level + 1), jnp.full(self.arr_shape[level + 1], 0.))
-            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, False, level + 1), jnp.full(self.arr_shape[level + 1], 0.))
+                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, True, level + 1), phi_c)
+            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, False, level + 1), phi_c)
             phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
 
         return phi
