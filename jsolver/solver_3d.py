@@ -80,9 +80,9 @@ def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcy
     All arrays must be two-dimensional and of the same shape.
 
     Args:
-        grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
-        grid_y (grid_1D): Linear grid for y-dimension (??-dimension).
-        grid_z (grid_1D): Linear grid for z-dimension (row-dimension).
+        grid_x (grid_1D): Linear grid for x-dimension (third index).
+        grid_y (grid_1D): Linear grid for y-dimension (second index).
+        grid_z (grid_1D): Linear grid for z-dimension (first index).
         fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
         epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
         gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
@@ -121,9 +121,9 @@ class Solver_3D:
         Initialize members for solver configuration and compute important constants.
 
         Args:
-            grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
-            grid_y (grid_1D): Linear grid for y-dimension (??-dimension).
-            grid_z (grid_1D): Linear grid for z-dimension (row-dimension).
+            grid_x (grid_1D): Linear grid for x-dimension (third index).
+            grid_y (grid_1D): Linear grid for y-dimension (second index).
+            grid_z (grid_1D): Linear grid for z-dimension (first index).
             fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The solver is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
             epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
             gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
@@ -155,9 +155,9 @@ class Solver_3D:
         All array shapes must be compile-time constants w.r.t. `jax.jit`!
 
         Args:
-            mx (int): Resolution of grid for x-dimension (column-dimension). Must be a power of 2.
-            my (int): Resolution of grid for y-dimension (??-dimension). Must be a power of 2.
-            mz (int): Resolution of grid for z-dimension (row-dimension). Must be a power of 2.
+            mx (int): Resolution of grid for x-dimension (third index). Must be a power of 2.
+            my (int): Resolution of grid for y-dimension (second index). Must be a power of 2.
+            mz (int): Resolution of grid for z-dimension (first index). Must be a power of 2.
 
         Raises:
             ValueError: If resolution of either grid is not a power of 2 or not efficient for multigrid configuration.
@@ -192,9 +192,9 @@ class Solver_3D:
         Compute reciprocals of the linear grid's cell width for every level and set `self.idel_x`, `self.idel_y`, and `self.idel_z` accordingly.
 
         Args:
-            grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
-            grid_y (grid_1D): Linear grid for y-dimension (??-dimension).
-            grid_z (grid_1D): Linear grid for z-dimension (row-dimension).
+            grid_x (grid_1D): Linear grid for x-dimension (third index).
+            grid_y (grid_1D): Linear grid for y-dimension (second index).
+            grid_z (grid_1D): Linear grid for z-dimension (first index).
 
         Raises:
             ValueError: If either grid is not linear.
@@ -283,13 +283,13 @@ class Solver_3D:
             # Currently, I do not get this part.
             D_xx, D_yy, D_zz = self.compute_diffusion_tensor(D_xx, D_yy, D_zz)
             # x-direction
-            self.AMat_lcc = [ jnp.roll(D_xx[level], -1, axis=0) * sq_idel_x[level] for level in range(self.levels) ]
+            self.AMat_lcc = [ jnp.roll(D_xx[level], (-1,-1, 0), axis=(0,1,2)) * sq_idel_x[level] for level in range(self.levels) ]
             self.AMat_rcc = [ jnp.roll(D_xx[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_x[level] for level in range(self.levels) ]
             # y-direction
-            self.AMat_clc = [ jnp.roll(D_yy[level], -1, axis=1) * sq_idel_y[level] for level in range(self.levels) ]
+            self.AMat_clc = [ jnp.roll(D_yy[level], (-1, 0,-1), axis=(0,1,2)) * sq_idel_y[level] for level in range(self.levels) ]
             self.AMat_crc = [ jnp.roll(D_yy[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_y[level] for level in range(self.levels) ]
             # z-direction
-            self.AMat_ccl = [ jnp.roll(D_zz[level], -1, axis=2) * sq_idel_z[level] for level in range(self.levels) ]
+            self.AMat_ccl = [ jnp.roll(D_zz[level], ( 0,-1,-1), axis=(0,1,2)) * sq_idel_z[level] for level in range(self.levels) ]
             self.AMat_ccr = [ jnp.roll(D_zz[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_z[level] for level in range(self.levels) ]
             # centered
             self.AMat_ccc = [ self.AMat_lcc[level] + self.AMat_rcc[level] + self.AMat_clc[level] + self.AMat_crc[level] + self.AMat_ccl[level] + self.AMat_ccr[level] + (lambda_fine if self.scalar_lambda else jnp.roll(lambda_level[level], (-1,-1,-1), axis=(0,1,2))) for level in range(self.levels) ]
