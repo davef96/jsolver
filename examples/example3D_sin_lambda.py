@@ -25,14 +25,17 @@ D_xx = 1.0
 D_yy = 1.0
 D_zz = 1.0
 phi = np.zeros(arr_shape)
-lam = 0.0
+x = grid_x.centers[np.newaxis,np.newaxis,:]
+y = grid_y.centers[np.newaxis,:, np.newaxis]
+z = grid_z.centers[:, np.newaxis, np.newaxis]
+lam = 0.2 * x * y ** 2 * z
 
-sinx = np.sin(np.pi * grid_x.centers)[np.newaxis, np.newaxis, :]
-siny = np.sin(np.pi * grid_y.centers)[np.newaxis, :, np.newaxis]
-sinz = np.sin(np.pi * grid_z.centers)[:, np.newaxis, np.newaxis]
+sinx = np.sin(np.pi * x)
+siny = np.sin(np.pi * y)
+sinz = np.sin(np.pi * z)
 
 phi_ana = sinx * siny * sinz
-rhs = -(np.pi ** 2) * (D_xx + D_yy + D_zz) * phi_ana
+rhs = -( (np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
 
 
 #sys.exit()
