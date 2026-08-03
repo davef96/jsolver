@@ -520,6 +520,7 @@ class Solver_3D:
 
         return corr
 
+    # hopefully changed to 3D
     def red_black_gauss_seidel(self, phi, rhs, level):
         """
         Red-Black Gauss-Seidel routine for smoothing, i.e. reducing high-frequency errors.
@@ -534,12 +535,17 @@ class Solver_3D:
         """
         phi = do_BCs(phi)
 
-        for (lx, ly) in [ (0,0), (1,1), (0,1), (1,0) ]:
+        for (lx, ly, lz) in [ (0,0,0), (0,1,1), (1,1,0), (1,0,1), (1,0,0), (0,1,0), (0,0,1), (1,1,1) ]:
             if self.spatial_diffusion:
-                off_diag_term = self.AMat_ll[level][ly:-2:2, lx:-2:2] * phi[ly:-2:2, lx:-2:2] + self.AMat_rl[level][ly:-2:2, lx:-2:2] * phi[ly:-2:2, lx+2::2] + self.AMat_lr[level][ly:-2:2, lx:-2:2] * phi[ly+2::2, lx:-2:2] + self.AMat_rr[level][ly:-2:2, lx:-2:2] * phi[ly+2::2, lx+2::2] if self.off_diag_diffusion else 0
-                phi = phi.at[ly+1:-1:2, lx+1:-1:2].set((self.AMat_cr[level][ly:-2:2, lx:-2:2] * phi[ly+2::2, lx+1:-1:2] + self.AMat_cl[level][ly:-2:2, lx:-2:2] * phi[ly:-2:2, lx+1:-1:2] + self.AMat_rc[level][ly:-2:2, lx:-2:2] * phi[ly+1:-1:2, lx+2::2] + self.AMat_lc[level][ly:-2:2, lx:-2:2] * phi[ly+1:-1:2, lx:-2:2] - rhs[ly+1:-1:2, lx+1:-1:2] + off_diag_term) / self.AMat_cc[level][ly:-2:2, lx:-2:2])
+                phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_ccr[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_ccl[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] + 
+                                                                   self.AMat_crc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_clc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] + 
+                                                                   self.AMat_rcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_lcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
+                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / self.AMat_cc[level][lz:-2:2, ly:-2:2, lx:-2:2])
             else:
-                phi = phi.at[ly+1:-1:2, lx+1:-1:2].set((self.AMat_y[level] * phi[ly+2::2, lx+1:-1:2] + self.AMat_y[level] * phi[ly:-2:2, lx+1:-1:2] + self.AMat_x[level] * phi[ly+1:-1:2, lx+2::2] + self.AMat_x[level] * phi[ly+1:-1:2, lx:-2:2] - rhs[ly+1:-1:2, lx+1:-1:2]) / (self.AMat_cc[level] if self.scalar_lambda else self.AMat_cc[level][ly:-2:2, lx:-2:2]))
+                phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_z[level] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_z[level] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] +
+                                                                   self.AMat_y[level] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_y[level] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] +
+                                                                   self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
+                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / (self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][lz:-2:2, ly:-2:2, lx:-2:2]))
             phi = do_BCs(phi)
 
         return phi
