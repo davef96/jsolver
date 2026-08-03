@@ -228,7 +228,7 @@ class Solver_3D:
         D_zz = [ jnp.zeros(self.arr_shape[level]) for level in range(self.levels) ]
         D_xx[0] = D_xx_fine
         D_yy[0] = D_yy_fine
-        D_zz[0] = D_zzfine
+        D_zz[0] = D_zz_fine
 
         # set the values for the lower resolution directly from the higher one
         for level in range(1, self.levels):
@@ -238,9 +238,9 @@ class Solver_3D:
             # only necessary in case of advection?
             D_xx[level] = D_xx[level].at[1:-1,1:-1, :-1].set(0.5 * (D_xx[level][1:-1,1:-1, 1:] + D_xx[level][1:-1,1:-1, :-1])) # average in x direction
             D_yy[level] = D_yy[level].at[1:-1,:-1, 1:-1].set(0.5 * (D_yy[level][1:-1,1:, 1:-1] + D_yy[level][1:-1,:-1, 1:-1])) # average in y direction
-            D_yy[level] = D_yy[level].at[:-1,1:-1, 1:-1].set(0.5 * (D_yy[level][1:, 1:-1,1:-1] + D_yy[level][:-1, 1:-1,1:-1])) # average in y direction
+            D_zz[level] = D_zz[level].at[:-1,1:-1, 1:-1].set(0.5 * (D_zz[level][1:, 1:-1,1:-1] + D_zz[level][:-1, 1:-1,1:-1])) # average in y direction
 
-        return D_xx, D_yy, D_xy
+        return D_xx, D_yy, D_zz
 
     # hopefully changed to 3D
     def compute_lambda(self, lambda_fine):
@@ -485,7 +485,7 @@ class Solver_3D:
         rhs_c = jnp.empty(self.arr_shape[level + 1])
 
         if self.spatial_diffusion:
-            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level][:-2, :-2 :-2] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level][:-2, :-2, :-2] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level][:-2, :-2 :-2] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level][:-2, :-2, :-2] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
+            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level][:-2, :-2, :-2] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level][:-2, :-2, :-2] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level][:-2, :-2, :-2] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level][:-2, :-2, :-2] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
 
         else:
             del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set((self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][:-2, :-2, :-2]) * phi[1:-1, 1:-1, 1:-1] - self.AMat_x[level] * phi[1:-1, 1:-1, :-2] - self.AMat_x[level] * phi[1:-1, 1:-1, 2:] - self.AMat_y[level] * phi[1:-1, :-2, 1:-1] - self.AMat_y[level] * phi[1:-1, 2:, 1:-1] - self.AMat_z[level] * phi[:-2, 1:-1, 1:-1] - self.AMat_z[level] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
@@ -541,7 +541,7 @@ class Solver_3D:
                 phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_ccr[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_ccl[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] + 
                                                                    self.AMat_crc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_clc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] + 
                                                                    self.AMat_rcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_lcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
-                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / self.AMat_cc[level][lz:-2:2, ly:-2:2, lx:-2:2])
+                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / self.AMat_ccc[level][lz:-2:2, ly:-2:2, lx:-2:2])
             else:
                 phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_z[level] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_z[level] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] +
                                                                    self.AMat_y[level] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_y[level] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] +
