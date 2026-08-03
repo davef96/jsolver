@@ -231,14 +231,16 @@ class Solver_3D:
         D_zz[0] = D_zz_fine
 
         # set the values for the lower resolution directly from the higher one
+        # Remark: gridpoint 0 represent the ghostcell, which in Picard is located at -1
+        # -> therefore point 1 in this case represents point 0 for Picard
         for level in range(1, self.levels):
             D_xx[level] = D_xx[level].at[1:-1, 1:-1, 1:-1].set(D_xx[level - 1][1::2, 1::2, 1::2])
             D_yy[level] = D_yy[level].at[1:-1, 1:-1, 1:-1].set(D_yy[level - 1][1::2, 1::2, 1::2])
             D_zz[level] = D_zz[level].at[1:-1, 1:-1, 1:-1].set(D_zz[level - 1][1::2, 1::2, 1::2])
-            # only necessary in case of advection?
+            # Transform D_xx to D_xxR, i.e., value between the two points - see also D_xxL and D_xxR in C++ solver
             D_xx[level] = D_xx[level].at[1:-1,1:-1, :-1].set(0.5 * (D_xx[level][1:-1,1:-1, 1:] + D_xx[level][1:-1,1:-1, :-1])) # average in x direction
             D_yy[level] = D_yy[level].at[1:-1,:-1, 1:-1].set(0.5 * (D_yy[level][1:-1,1:, 1:-1] + D_yy[level][1:-1,:-1, 1:-1])) # average in y direction
-            D_zz[level] = D_zz[level].at[:-1,1:-1, 1:-1].set(0.5 * (D_zz[level][1:, 1:-1,1:-1] + D_zz[level][:-1, 1:-1,1:-1])) # average in y direction
+            D_zz[level] = D_zz[level].at[:-1,1:-1, 1:-1].set(0.5 * (D_zz[level][1:, 1:-1,1:-1] + D_zz[level][:-1, 1:-1,1:-1])) # average in z direction
 
         return D_xx, D_yy, D_zz
 
@@ -264,6 +266,7 @@ class Solver_3D:
         return lambda_level
 
     # maybe changed to 3D
+    # need to check indexing, here.
     def compute_discretization(self, lambda_fine, D_xx, D_yy, D_zz):
         """
         Compute discretization arrays for every level of the multigrid structure and store them as class members (lists of length `self.levels`).
