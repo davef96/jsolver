@@ -164,7 +164,7 @@ def grad_func_solve_mixed(setup_mixed):
     return gsolve      
 
 
-def problem_2(x_cen, y_cen, z_cen, shape):
+def problem_1(x_cen, y_cen, z_cen, shape):
     D_xx = 1.0
     D_yy = 1.0
     D_zz = 1.0
@@ -174,6 +174,90 @@ def problem_2(x_cen, y_cen, z_cen, shape):
     phi_ana = sx * sy * sz
     lam = np.zeros(shape)
     rhs = -(np.pi ** 2) * (D_xx + D_yy + D_zz) * phi_ana
+
+    return phi_ana, rhs, lam, D_xx, D_yy, D_zz
+
+@pytest.fixture
+def test1_setup(setup):
+    grid_x, grid_y, grid_z, phi, _, _ = setup
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+
+@pytest.fixture
+def test1_setup_32(setup_32):
+    grid_x, grid_y, grid_z, phi, _, _ = setup_32
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+
+@pytest.fixture
+def test1_setup_mixed(setup_mixed):
+    grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+
+def test1(setup, test1_setup, grad_func_solve):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test1_setup
+    gsolve = grad_func_solve
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 19
+    assert pytest.approx(6.936905980033114e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
+
+def test1_32(setup_32, test1_setup_32, grad_func_solve_32):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_32
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test1_setup_32
+    gsolve = grad_func_solve_32
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 19
+    assert pytest.approx(0.0002712919636528891, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
+
+def test1_32(setup_mixed, test1_setup_mixed, grad_func_solve_mixed):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_mixed
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test1_setup_mixed
+    gsolve = grad_func_solve_mixed
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 33
+    assert pytest.approx(0.0002049924560414506, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))        
+
+
+def problem_2(x_cen, y_cen, z_cen, shape):
+    D_xx = 1.0
+    D_yy = 1.0
+    D_zz = 1.0
+    x = x_cen[np.newaxis, np.newaxis, :]
+    y = y_cen[np.newaxis, :, np.newaxis]
+    z = z_cen[:, np.newaxis, np.newaxis]
+    sx = np.sin(np.pi * x)
+    sy = np.sin(np.pi * y)
+    sz = np.sin(np.pi * z)
+    phi_ana = sx * sy * sz
+    lam = 0.2 * x * y ** 2 * z**3
+    print("\n shape of lambda",lam.shape)
+    rhs = -((np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy, D_zz
 
@@ -190,7 +274,7 @@ def test2_setup_32(setup_32):
 @pytest.fixture
 def test2_setup_mixed(setup_mixed):
     grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)    
 
 def test2(setup, test2_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -202,7 +286,7 @@ def test2(setup, test2_setup, grad_func_solve):
     print("solve took {} s".format(time.time() - curr_time))
 
     assert iterations == 19
-    assert pytest.approx(6.936905980033114e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+    assert pytest.approx(6.935753745686714e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
     if check_autodiff_fwd:
         curr_time = time.time()
@@ -219,14 +303,14 @@ def test2_32(setup_32, test2_setup_32, grad_func_solve_32):
     print("solve took {} s".format(time.time() - curr_time))
 
     assert iterations == 19
-    assert pytest.approx(0.0002712919636528891, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+    assert pytest.approx(0.00027124687452780976, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))        
 
-def test2_32(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
+def test2_mixed(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_mixed
     phi_ana, rhs, lam, D_xx, D_yy, D_zz = test2_setup_mixed
     gsolve = grad_func_solve_mixed
@@ -236,9 +320,9 @@ def test2_32(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
     print("solve took {} s".format(time.time() - curr_time))
 
     assert iterations == 33
-    assert pytest.approx(0.0002049924560414506, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+    assert pytest.approx(0.00020495839279424837, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
 
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))        
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))           
