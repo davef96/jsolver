@@ -326,3 +326,86 @@ def test2_mixed(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))           
+
+def problem_3(x_cen, y_cen, z_cen, shape):
+    D_xx = 1.0
+    D_yy = 0.5
+    D_zz = 2.0
+    x = x_cen[np.newaxis, np.newaxis, :]
+    y = y_cen[np.newaxis, :, np.newaxis]
+    z = z_cen[:, np.newaxis, np.newaxis]
+    sx = np.sin(np.pi * x)
+    sy = np.sin(np.pi * y)
+    sz = np.sin(np.pi * z)
+    phi_ana = sx * sy * sz
+    lam = 0.2 * x * y ** 2 * z**3
+    print("\n shape of lambda",lam.shape)
+    rhs = -((np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
+
+    return phi_ana, rhs, lam, D_xx, D_yy, D_zz
+
+@pytest.fixture
+def test3_setup(setup):
+    grid_x, grid_y, grid_z, phi, _, _ = setup
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+
+@pytest.fixture
+def test3_setup_32(setup_32):
+    grid_x, grid_y, grid_z, phi, _, _ = setup_32
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+
+@pytest.fixture
+def test3_setup_mixed(setup_mixed):
+    grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)    
+
+def test3(setup, test3_setup, grad_func_solve):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test3_setup
+    gsolve = grad_func_solve
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 36
+    assert pytest.approx(6.93591831010889e-05, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
+
+def test3_32(setup_32, test3_setup_32, grad_func_solve_32):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_32
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test3_setup_32
+    gsolve = grad_func_solve_32
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 35
+    assert pytest.approx(0.0002712533139540335, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))   
+
+def test3_mixed(setup_mixed, test3_setup_mixed, grad_func_solve_mixed):
+    grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_mixed
+    phi_ana, rhs, lam, D_xx, D_yy, D_zz = test3_setup_mixed
+    gsolve = grad_func_solve_mixed
+
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    print("solve took {} s".format(time.time() - curr_time))
+
+    assert iterations == 27
+    assert pytest.approx(0.00024402769848607482, abs=acceptable_error_abs, rel=acceptable_error_rel) == rmse(phi_ana, phi_res)
+
+    if check_autodiff_fwd:
+        curr_time = time.time()
+        check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))           
