@@ -495,7 +495,7 @@ class Solver_3D:
 
         return rhs_c
 
-    # TBD
+    # hopefully changed to 3D
     def prolongate(self, phi_c, level):
         """
         Interpolate the correction computed on a coarser grid into a finer grid.
@@ -509,10 +509,14 @@ class Solver_3D:
         """
         corr = jnp.empty(self.arr_shape[level])
 
-        corr = corr.at[1:-1:2, 1:-1:2].set(phi_c[1:-1, 1:-1])
-        corr = corr.at[1:-1:2, 2:-1:2].set(0.5 * (corr[1:-1:2, 3::2] + corr[1:-1:2, 1:-2:2]))
-        corr = corr.at[2:-1:2, 1:-1:2].set(0.5 * (corr[3::2, 1:-1:2] + corr[1:-2:2, 1:-1:2]))
-        corr = corr.at[2:-1:2, 2:-1:2].set(0.25 * (corr[3::2, 3::2] + corr[1:-2:2, 3::2] + corr[3::2, 1:-2:2] + corr[1:-2:2, 1:-2:2]))
+        corr = corr.at[1:-1:2, 1:-1:2, 1:-1:2].set(phi_c[1:-1, 1:-1, 1:-1]) # direct copy
+        corr = corr.at[1:-1:2, 1:-1:2, 2:-1:2].set(0.5 * (corr[1:-1:2, 1:-1:2, 3::2] + corr[1:-1:2, 1:-1:2, 1:-2:2])) # linear interpolation in x
+        corr = corr.at[1:-1:2, 2:-1:2, 1:-1:2].set(0.5 * (corr[1:-1:2, 3::2, 1:-1:2] + corr[1:-1:2, 1:-2:2, 1:-1:2])) # linear interpolation in y
+        corr = corr.at[2:-1:2, 1:-1:2, 1:-1:2].set(0.5 * (corr[3::2, 1:-1:2, 1:-1:2] + corr[1:-2:2, 1:-1:2, 1:-1:2])) # linear interpolation in z
+        corr = corr.at[1:-1:2, 2:-1:2, 2:-1:2].set(0.25 * (corr[1:-1:2, 3::2, 3::2] + corr[1:-1:2, 1:-2:2, 3::2] + corr[1:-1:2, 3::2, 1:-2:2] + corr[1:-1:2, 1:-2:2, 1:-2:2])) # di-linear interpolation in x and y
+        corr = corr.at[2:-1:2, 1:-1:2, 2:-1:2].set(0.25 * (corr[3::2, 1:-1:2, 3::2] + corr[1:-2:2, 1:-1:2, 3::2] + corr[3::2, 1:-1:2, 1:-2:2] + corr[1:-2:2, 1:-1:2, 1:-2:2])) # di-linear interpolation in x and z
+        corr = corr.at[2:-1:2, 2:-1:2, 1:-1:2].set(0.25 * (corr[3::2, 3::2, 1:-1:2] + corr[1:-2:2, 3::2, 1:-1:2] + corr[3::2, 1:-2:2, 1:-1:2] + corr[1:-2:2, 1:-2:2, 1:-1:2])) # di-linear interpolation in y and z
+        corr = corr.at[2:-1:2, 2:-1:2, 2:-1:2].set(0.125 * (corr[3::2, 3::2, 3::2] + corr[1:-2:2, 3::2, 3::2] + corr[3::2, 1:-2:2, 3::2] + corr[1:-2:2, 1:-2:2, 3::2] + corr[3::2, 3::2, 1:-2:2] + corr[1:-2:2, 3::2, 1:-2:2] + corr[3::2, 1:-2:2, 1:-2:2] + corr[1:-2:2, 1:-2:2, 1:-2:2])) # tri-linear interpolation 
 
         return corr
 
