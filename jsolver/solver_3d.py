@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jsolver.boundary_handler_2d import do_BCs
+from jsolver.boundary_handler_3d import do_BCs3D
 from functools import partial
 
 # set default dtype to float64 (solver does not work properly otherwise!)
@@ -67,11 +67,11 @@ def solve_2d_fixed(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx
 
 # hopefully changed to 3D
 @partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
-def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
-    Initializes `Solver_2D` object and calls `solve` method.
+    Initializes `Solver_3D` object and calls `solve` method.
 
     Arguments after grid objects are set to keyword-only (`*`) for full support of all optional arguments.
 
@@ -332,7 +332,7 @@ class Solver_3D:
         self.compute_discretization(lam, D_xx, D_yy, D_zz)
 
         if self.fixed:
-            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_routine(do_BCs(phi), rhs, self.fcycle), phi)
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_routine(do_BCs3D(phi), rhs, self.fcycle), phi)
             count = self.max_iters_outer
         else:
             def cond(arg):
@@ -342,7 +342,7 @@ class Solver_3D:
             def body(arg):
                 phi, count, dist = arg
                 distance = partial(self.distance, phi)
-                phi = self.multigrid_routine(do_BCs(phi), rhs, self.fcycle)
+                phi = self.multigrid_routine(do_BCs3D(phi), rhs, self.fcycle)
                 dist = distance(phi)
                 #jax.debug.print("count: {}, dist = {}", count, dist)
                 return (phi, count + 1, dist)
@@ -484,14 +484,14 @@ class Solver_3D:
         rhs_c = jnp.empty(self.arr_shape[level + 1])
 
         if self.spatial_diffusion:
-            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level][:-2, :-2 :-2] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level][:-2, :-2, :-2] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level][:-2, :-2 :-2] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level][:-2, :-2, :-2] * phi[2:,, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
+            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level][:-2, :-2 :-2] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level][:-2, :-2, :-2] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level][:-2, :-2 :-2] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level][:-2, :-2, :-2] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
 
         else:
             del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set((self.AMat_cc[level] if self.scalar_lambda else self.AMat_ccc[level][:-2, :-2, :-2]) * phi[1:-1, 1:-1, 1:-1] - self.AMat_x[level] * phi[1:-1, 1:-1, :-2] - self.AMat_x[level] * phi[1:-1, 1:-1, 2:] - self.AMat_y[level] * phi[1:-1, :-2, 1:-1] - self.AMat_y[level] * phi[1:-1, 2:, 1:-1] - self.AMat_z[level] * phi[:-2, 1:-1, 1:-1] - self.AMat_z[level] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
 
-        del_fine = do_BCs(del_fine)
-        rhs_c = rhs_c.at[1:-1, 1:-1, 1:-1].set(0.03125 * (del_fine[1:-1:2, 2::2, 2::2] + del_fine[1:-1:2, 2::2, :-2:2] + del_fine[1:-1:2, :-2:2, 2::2] + del_fine[1:-1:2, :-2:2, :-2:2] + del_fine[2::2, 1:-1:2, 2::2] + del_fine[2::2, 1:-1:2, :-2:2] + del_fine[:-2:2, 1:-1:2, 2::2] + del_fine[:-2:2, 1:-1:2, :-2:2] + del_fine[2::2, 2::2, 1:-1:2] + del_fine[2::2, :-2:2, 1:-1:2] + del_fine[:-2:2, 2::2, 1:-1:2] + del_fine[:-2:2, :-2:2, 1:-1:2]) + 0.125 * del_fine[1:-1:2. 1:-1:2, 1:-1:2])
-        rhs_c = do_BCs(rhs_c)
+        del_fine = do_BCs3D(del_fine)
+        rhs_c = rhs_c.at[1:-1, 1:-1, 1:-1].set(0.03125 * (del_fine[1:-1:2, 2::2, 2::2] + del_fine[1:-1:2, 2::2, :-2:2] + del_fine[1:-1:2, :-2:2, 2::2] + del_fine[1:-1:2, :-2:2, :-2:2] + del_fine[2::2, 1:-1:2, 2::2] + del_fine[2::2, 1:-1:2, :-2:2] + del_fine[:-2:2, 1:-1:2, 2::2] + del_fine[:-2:2, 1:-1:2, :-2:2] + del_fine[2::2, 2::2, 1:-1:2] + del_fine[2::2, :-2:2, 1:-1:2] + del_fine[:-2:2, 2::2, 1:-1:2] + del_fine[:-2:2, :-2:2, 1:-1:2]) + 0.125 * del_fine[1:-1:2, 1:-1:2, 1:-1:2])
+        rhs_c = do_BCs3D(rhs_c)
 
         return rhs_c
 
@@ -533,7 +533,7 @@ class Solver_3D:
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
         """
-        phi = do_BCs(phi)
+        phi = do_BCs3D(phi)
 
         for (lx, ly, lz) in [ (0,0,0), (0,1,1), (1,1,0), (1,0,1), (1,0,0), (0,1,0), (0,0,1), (1,1,1) ]:
             if self.spatial_diffusion:
@@ -546,7 +546,7 @@ class Solver_3D:
                                                                    self.AMat_y[level] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_y[level] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] +
                                                                    self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
                                                                    rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / (self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][lz:-2:2, ly:-2:2, lx:-2:2]))
-            phi = do_BCs(phi)
+            phi = do_BCs3D(phi)
 
         return phi
 
