@@ -177,7 +177,7 @@ class Solver_3D:
         self.mx_level = 2 ** np.arange(x_levels - 1, x_levels - self.levels - 1, -1, dtype=int)
         self.my_level = 2 ** np.arange(y_levels - 1, y_levels - self.levels - 1, -1, dtype=int)
         self.mz_level = 2 ** np.arange(z_levels - 1, z_levels - self.levels - 1, -1, dtype=int)
-        self.arr_shape = [ (self.mz_level[level] + 3, self.my_level[level] + 3, self.mx_level[level] + 3.) for level in range(self.levels) ]
+        self.arr_shape = [ (self.mz_level[level] + 3, self.my_level[level] + 3, self.mx_level[level] + 3) for level in range(self.levels) ]
 
         if self.mx_level[-1] > 5:
             raise ValueError(f"Resolution of x-grid not efficient for multigrid configuration. Resolution of coarsest level: {self.mx_level[-1]}")
@@ -302,7 +302,7 @@ class Solver_3D:
             self.AMat_ccc = add + lambda_fine if self.scalar_lambda else [ add[level] + jnp.roll(lambda_level[level], (-1,-1,-1), axis=(0,1,2)) for level in range(self.levels) ]
 
     # hopefully changed to 3D
-    def solve(self, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+    def solve(self, phi, rhs, lam, D_xx, D_yy, D_zz):
         """
         Multigrid solver for 3D steady-state diffusion problem.
 
