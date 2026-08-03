@@ -4,6 +4,7 @@ import numpy as np
 from jsolver.boundary_handler_3d import do_BCs3D
 from functools import partial
 
+
 # set default dtype to float64 (solver does not work properly otherwise!)
 jax.config.update('jax_enable_x64', True)
 
@@ -25,45 +26,45 @@ def solve_3d_fcycle_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_
     """
     return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
 
-def solve_2d_fixed_fcycle_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_3d_fixed_fcycle_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and F-cycle multigrid.
 
     The argument `iters` controls the number of multigrid iterations.
 
-    See `solve_2d`.
+    See `solve_3d`.
     """
-    return solve_2d_fixed_fcycle(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+    return solve_3d_fixed_fcycle(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
-def solve_2d_fixed_fcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_3d_fixed_fcycle(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
 
     The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
 
-    See `solve_2d`.
+    See `solve_3d`.
     """
-    return solve_2d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy, fcycle=True)
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
 
-def solve_2d_fixed_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_3d_fixed_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`).
 
     The argument `iters` controls the number of multigrid iterations.
 
-    See `solve_2d`.
+    See `solve_3d`.
     """
-    return solve_2d_fixed(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+    return solve_3d_fixed(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
-def solve_2d_fixed(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_3d_fixed(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations.
 
     The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
 
-    See `solve_2d`.
+    See `solve_3d`.
     """
-    return solve_2d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy)
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
 # hopefully changed to 3D
 @partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
