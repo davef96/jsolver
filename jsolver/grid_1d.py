@@ -1,9 +1,9 @@
+import jax
 import numpy as np
-from simple_pytree import Pytree, static_field
 from dataclasses import dataclass
 
-@dataclass
-class grid_1D(Pytree):
+@jax.tree_util.register_static
+class grid_1D:
     """
     A class to represent a one-dimensional grid.
 
@@ -11,27 +11,27 @@ class grid_1D(Pytree):
 
     Developer notes:
 
-    Class must be immutable in order to be used as a static argument for `jax.jit(solve_2d)`, which is required since array shapes and number of multigrid levels, which are computed from the grid members, must be computed statically, i.e. at trace-time by using `numpy` functions instead of their `jax.numpy` counterpart.
+    Class must be immutable in order to be used as a static argument for `jax.jit(solve)`, which is required since array shapes and number of multigrid levels (which both are computed from the grid_1D members) must be computed statically, i.e., at trace-time by using `numpy` functions instead of their `jax.numpy` counterpart.
 
-    Array members (i.e. `centers`, `widths`, `edges`) must be static fields in order to remain unchanged by `jax` transformations.
+    In particular, array members (i.e., `centers`, `widths`, `edges`) must be static fields in order to remain unchanged by `jax` transformations.
 
     Since `jax` does not hash array members, `__hash__` and `__eq__` methods must be provided manually such that `jax.jit` can determine whether the given static argument is equivalent to one of a cached, previously compiled function with matching dynamic array shapes.
     """
-    mx: int = static_field()
-    nx: int = static_field()
-    centered : bool = static_field()
-    rim : int = static_field()
-    xb : float = static_field()
-    xe : float = static_field()
-    grid_type : int = static_field()
-    length : float = static_field()
-    del_ : float = static_field()
-    idel : float = static_field()
-    is_linear : bool = static_field()
+    mx: int
+    nx: int
+    centered : bool
+    rim : int
+    xb : float
+    xe : float
+    grid_type : int
+    length : float
+    del_ : float
+    idel : float
+    is_linear : bool
 
-    centers : np.ndarray = static_field()
-    widths : np.ndarray = static_field()
-    edges : np.ndarray = static_field()
+    centers : np.ndarray
+    widths : np.ndarray
+    edges : np.ndarray
 
     def __hash__(self):
         """

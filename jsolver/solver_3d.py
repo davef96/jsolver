@@ -1,14 +1,12 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jsolver.boundary_handler_3d import do_BCs3D
+from jsolver.boundary_handler_3d import do_BCs
 from functools import partial
-
 
 # set default dtype to float64 (solver does not work properly otherwise!)
 jax.config.update('jax_enable_x64', True)
 
-# now in 3D
 def solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments.
@@ -17,40 +15,11 @@ def solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
-# now in 3D
-def solve_3d_fcycle_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
-    """
-    Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
-
-    See `solve_2d`.
-    """
-    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
-
-def solve_3d_fixed_fcycle_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
-    """
-    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and F-cycle multigrid.
-
-    The argument `iters` controls the number of multigrid iterations.
-
-    See `solve_3d`.
-    """
-    return solve_3d_fixed_fcycle(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
-
-def solve_3d_fixed_fcycle(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
-    """
-    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
-
-    The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
-
-    See `solve_3d`.
-    """
-    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
-
 def solve_3d_fixed_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`).
 
-    The argument `iters` controls the number of multigrid iterations.
+    The argument `iters` controls the number of multigrid cycles.
 
     See `solve_3d`.
     """
@@ -60,13 +29,68 @@ def solve_3d_fixed(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, l
     """
     Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations.
 
-    The argument `iters_outer` controls the number of multigrid iterations, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
 
     See `solve_3d`.
     """
     return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
-# hopefully changed to 3D
+def solve_3d_fcycle_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
+
+def solve_3d_fixed_fcycle_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and F-cycle multigrid.
+
+    The argument `iters` controls the number of multigrid cycles.
+
+    See `solve_3d`.
+    """
+    return solve_3d_fixed_fcycle(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+
+def solve_3d_fixed_fcycle(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
+
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
+
+def solve_3d_wcycle_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and W-cycle multigrid.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
+
+def solve_3d_fixed_wcycle_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and W-cycle multigrid.
+
+    The argument `iters` controls the number of multigrid cycles.
+
+    See `solve_3d`.
+    """
+    return solve_3d_fixed_wcycle(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+
+def solve_3d_fixed_wcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and W-cycle multigrid.
+
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
+
 @partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
 def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
@@ -78,7 +102,7 @@ def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcy
 
     Note that `grid_x` `grid_y`, and `grid_y` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
 
-    All arrays must be two-dimensional and of the same shape.
+    All arrays must be three-dimensional and of compatible shape: `lam`, `D_xx`, `D_yy`, `D_zz` can be scalars, but `D_xx`, `D_yy`, and `D_zz` must either all be scalar or all of the same shape as the other arrays; all non-scalars must be of the same shape.
 
     Args:
         grid_x (grid_1D): Linear grid for x-dimension (third index).
@@ -86,40 +110,41 @@ def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcy
         grid_z (grid_1D): Linear grid for z-dimension (first index).
         fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
         epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
-        gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
-        fcycle (bool, optional): Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
-        nu1 (int, optional): Number of smoothing iterations before `defect` operation. Defaults to `1`.
-        nu2 (int, optional): Number of smoothing iterations after `prolongate`. Defaults to `1`.
-        max_iters_outer (int, optional): The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+        gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
+        fcycle (bool, optional): Use F-cycle in `multigrid_cycle`. Can be combined with `gamma` into an "F-gamma-cycle". Defaults to `False`.
+        skip_pre (bool, optional): Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Only makes sense if `nu1 > 0` and `nu2 > 0`. Defaults to `False`.
+        nu1 (int, optional): Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
+        nu2 (int, optional): Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
+        max_iters_outer (int, optional): The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
         max_iters_inner (int, optional): The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
         phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
         rhs (jax.Array): Right-hand side of the equation.
-        lam (float or jax.Array): `lambda` (either constant or spatially-varying decay rate).
-        D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-        D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-        D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
+        lam (float or jax.Array): `lambda` (either constant or spatially varying decay rate).
+        D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+        D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+        D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
     Returns:
         phi (jax.Array): Computed solution for `phi`.
         count (int): Number of iterations performed.
 
     Raises:
-        ValueError: If either grid is not linear, or the grid resolution is not a power of 2 or not efficient for multigrid configuration.
+        ValueError: If either grid is not linear, or the grid resolution is not a power of 2 or not efficient for multigrid configuration, or array shapes are incompatible.
     """
     solver = Solver_3D(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=fixed, epsilon=epsilon, gamma=gamma, fcycle=fcycle, nu1=nu1, nu2=nu2, max_iters_outer=max_iters_outer, max_iters_inner=max_iters_inner)
     return solver.solve(phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
 class Solver_3D:
     """
-    A class containing methods for the implementation of a multigrid solver for a 3D steady-state diffusion problem.
+    A class containing methods implementing an iterative geometric multigrid solver for the 3D steady-state diffusion–absorption problem.
 
-    Members are used for convenience, as explicit parameter passing would be quite the hassle for some functions.
-    Note that all methods are impure due to the implicit `self` parameter and thus not (directly) compatible with JAX's transformations.
+    Members are used for convenience, as explicit parameter passing would be quite the hassle (for some functions).
+    Note that all methods are impure due to the implicit `self` parameter and thus not (directly) compatible with `jax` transformations.
+    However, all invariants are established after calling `compute_discretization` (i.e., no members are modified after this point); hence, `jax` transformations can be applied to subsequent methods by making `self` a static parameter.
     """
 
-    # hopefully changed to 3D
     def __init__(self, grid_x, grid_y, grid_z, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
         """
-        Initialize members for solver configuration and compute important constants.
+        Initialize members for solver configuration and compute important compile-time constants.
 
         Args:
             grid_x (grid_1D): Linear grid for x-dimension (third index).
@@ -127,11 +152,12 @@ class Solver_3D:
             grid_z (grid_1D): Linear grid for z-dimension (first index).
             fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The solver is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
             epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
-            gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_routine`. Defaults to `1`.
-            fcycle (bool, optional): Use F-cycle in `multigrid_routine`. Can be combined with `gamma`. Defaults to `False`.
-            nu1 (int, optional): Number of smoothing iterations before `defect` operation. Defaults to `1`.
-            nu2 (int, optional): Number of smoothing iterations after `prolongate`. Defaults to `1`.
-            max_iters_outer (int, optional): The maximum number of solver (i.e. multigrid) iterations. Defaults to `int32.max`.
+            gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
+            fcycle (bool, optional): Use F-cycle in `multigrid_cycle`. Can be combined with `gamma`. Defaults to `False`.
+            skip_pre (bool, optional): Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Defaults to `False`.
+            nu1 (int, optional): Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
+            nu2 (int, optional): Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
+            max_iters_outer (int, optional): The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
             max_iters_inner (int, optional): The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
 
         Raises:
@@ -148,12 +174,11 @@ class Solver_3D:
         self.compute_shapes(grid_x.mx, grid_y.mx, grid_z.mx)
         self.compute_idel(grid_x, grid_y, grid_z)
 
-    # hopefully changed to 3D
     def compute_shapes(self, mx, my, mz):
         """
-        Compute number of levels and shapes for each level statically (i.e. use `numpy` instead of `jax.numpy`).
+        Compute number of levels and shapes for each level statically (i.e., use `numpy` instead of `jax.numpy`).
 
-        All array shapes must be compile-time constants w.r.t. `jax.jit`!
+        All array shapes (and types) must be compile-time constants w.r.t. `jax.jit`!
 
         Args:
             mx (int): Resolution of grid for x-dimension (third index). Must be a power of 2.
@@ -187,7 +212,6 @@ class Solver_3D:
         if self.mz_level[-1] > 5:
             raise ValueError(f"Resolution of z-grid not efficient for multigrid configuration. Resolution of coarsest level: {self.mz_level[-1]}")
 
-    # hopefully changed to 3D
     def compute_idel(self, grid_x, grid_y, grid_z):
         """
         Compute reciprocals of the linear grid's cell width for every level and set `self.idel_x`, `self.idel_y`, and `self.idel_z` accordingly.
@@ -207,10 +231,9 @@ class Solver_3D:
         self.idel_y = grid_y.idel * 0.5 ** np.arange(self.levels)
         self.idel_z = grid_z.idel * 0.5 ** np.arange(self.levels)
 
-    # hopefully changed to 3D
     def compute_diffusion_tensor(self, D_xx_fine, D_yy_fine, D_zz_fine):
         """
-        Compute diffusion tensor components for every level of the multigrid structure (if spatially-varying diffusion is desired).
+        Compute diffusion tensor components for every level of the multigrid structure (if spatially varying diffusion is desired).
 
         Interpolated values between the gridpoints are used for the diffusion.
 
@@ -244,10 +267,9 @@ class Solver_3D:
 
         return D_xx, D_yy, D_zz
 
-    # hopefully changed to 3D
     def compute_lambda(self, lambda_fine):
         """
-        Compute `lambda` (spatially-varying decay rate) for every level of the multigrid structure.
+        Compute `lambda` (spatially varying decay rate) for every level of the multigrid structure.
 
         Args:
             lambda_fine (jax.Array): `lambda` for finest/highest resolution.
@@ -265,17 +287,15 @@ class Solver_3D:
 
         return lambda_level
 
-    # maybe changed to 3D
-    # need to check indexing, here.
     def compute_discretization(self, lambda_fine, D_xx, D_yy, D_zz):
         """
         Compute discretization arrays for every level of the multigrid structure and store them as class members (lists of length `self.levels`).
 
         Args:
             lambda_fine (float or jax.Array): Either constant or `lambda` for finest/highest resolution.
-            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-            D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
+            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
         """
         sq_idel_x = self.idel_x ** 2
         sq_idel_y = self.idel_y ** 2
@@ -284,59 +304,61 @@ class Solver_3D:
         lambda_level = None if self.scalar_lambda else self.compute_lambda(lambda_fine)
 
         if self.spatial_diffusion:
-            # Currently, I do not get this part.
             D_xx, D_yy, D_zz = self.compute_diffusion_tensor(D_xx, D_yy, D_zz)
             # x-direction
-            self.AMat_lcc = [ jnp.roll(D_xx[level], (-1,-1, 0), axis=(0,1,2)) * sq_idel_x[level] for level in range(self.levels) ]
-            self.AMat_rcc = [ jnp.roll(D_xx[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_x[level] for level in range(self.levels) ]
+            self.AMat_lcc = [ D_xx[level][1:-1, 1:-1, 0:-2] * sq_idel_x[level] for level in range(self.levels) ] # get D_xxL via shifting right by 1 position
+            self.AMat_rcc = [ D_xx[level][1:-1, 1:-1, 1:-1] * sq_idel_x[level] for level in range(self.levels) ] # just ignore ghost cells for D_xxR
             # y-direction
-            self.AMat_clc = [ jnp.roll(D_yy[level], (-1, 0,-1), axis=(0,1,2)) * sq_idel_y[level] for level in range(self.levels) ]
-            self.AMat_crc = [ jnp.roll(D_yy[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_y[level] for level in range(self.levels) ]
+            self.AMat_clc = [ D_yy[level][1:-1, 0:-2, 1:-1] * sq_idel_y[level] for level in range(self.levels) ]
+            self.AMat_crc = [ D_yy[level][1:-1, 1:-1, 1:-1] * sq_idel_y[level] for level in range(self.levels) ]
             # z-direction
-            self.AMat_ccl = [ jnp.roll(D_zz[level], ( 0,-1,-1), axis=(0,1,2)) * sq_idel_z[level] for level in range(self.levels) ]
-            self.AMat_ccr = [ jnp.roll(D_zz[level], (-1,-1,-1), axis=(0,1,2)) * sq_idel_z[level] for level in range(self.levels) ]
+            self.AMat_ccl = [ D_zz[level][0:-2, 1:-1, 1:-1] * sq_idel_z[level] for level in range(self.levels) ]
+            self.AMat_ccr = [ D_zz[level][1:-1, 1:-1, 1:-1] * sq_idel_z[level] for level in range(self.levels) ]
             # centered
-            self.AMat_ccc = [ self.AMat_lcc[level] + self.AMat_rcc[level] + self.AMat_clc[level] + self.AMat_crc[level] + self.AMat_ccl[level] + self.AMat_ccr[level] + (lambda_fine if self.scalar_lambda else jnp.roll(lambda_level[level], (-1,-1,-1), axis=(0,1,2))) for level in range(self.levels) ]
+            self.AMat_ccc = [ self.AMat_lcc[level] + self.AMat_rcc[level] + self.AMat_clc[level] + self.AMat_crc[level] + self.AMat_ccl[level] + self.AMat_ccr[level] + (lambda_fine if self.scalar_lambda else lambda_level[level][1:-1, 1:-1, 1:-1]) for level in range(self.levels) ]
 
         else:
             self.AMat_x = D_xx * sq_idel_x
             self.AMat_y = D_yy * sq_idel_y
             self.AMat_z = D_zz * sq_idel_z
             add = 2 * (self.AMat_x + self.AMat_y + self.AMat_z)
-            self.AMat_ccc = add + lambda_fine if self.scalar_lambda else [ add[level] + jnp.roll(lambda_level[level], (-1,-1,-1), axis=(0,1,2)) for level in range(self.levels) ]
+            self.AMat_ccc = add + lambda_fine if self.scalar_lambda else [ add[level] + lambda_level[level][1:-1, 1:-1, 1:-1] for level in range(self.levels) ]
 
-    # hopefully changed to 3D
     def solve(self, phi, rhs, lam, D_xx, D_yy, D_zz):
         """
-        Multigrid solver for 3D steady-state diffusion problem.
+        Multigrid solver for 3D steady-state diffusion–absorption problem.
 
-        Iterate until `distance(phi_old, phi) <= self.epsilon`.
+        Iterate (i.e., call `multigrid_cycle`) until `distance(phi_old, phi) <= self.epsilon`.
 
         Args:
             phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
             rhs (jax.Array): Right-hand side of the equation.
-            lam (float or jax.Array): `lambda` (either constant or spatially-varying decay rate).
-            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
-            D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially-varying diffusion is desired).
+            lam (float or jax.Array): `lambda` (either constant or spatially varying decay rate).
+            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_zz_fine (float or jax.Array): Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
 
         Returns:
             phi (jax.Array): Computed solution for `phi`.
             count (int): Number of iterations performed.
+
+        Raises:
+            ValueError: If argument shapes or types are incompatible.
         """
-        self.spatial_diffusion = phi.shape == D_xx.shape == D_yy.shape == D_zz.shape
-        self.scalar_lambda = not lam.shape == phi.shape
+        self.scalar_lambda = jnp.isscalar(lam)
+        self.scalar_diffusion = jnp.isscalar(D_xx) and jnp.isscalar(D_yy) and jnp.isscalar(D_zz)
+        self.spatial_diffusion = not self.scalar_diffusion
 
-        #if not phi.dtype == jnp.float64:
-        #    raise ValueError("Incorrect configuration: dtype must be 'jnp.float64' but is '{phi.dtype}'.")
+        if not phi.dtype == rhs.dtype == lam.dtype == D_xx.dtype == D_yy.dtype == D_zz.dtype == jnp.float64:
+            raise ValueError("Incorrect configuration: dtype must be 'jnp.float64' for all arguments.")
 
-        #if not phi.shape == rhs.shape:
-        #    raise ValueError(f"Shape mismatch phi {phi.shape} vs. rhs {rhs.shape}.")
+        if not D_xx.shape == D_yy.shape == D_zz.shape or (self.scalar_lambda and not phi.shape == rhs.shape) or (not self.scalar_lambda and not phi.shape == rhs.shape == lam.shape) or (self.spatial_diffusion and not phi.shape == rhs.shape == D_xx.shape == D_yy.shape == D_zz.shape):
+            raise ValueError(f"Shape mismatch: phi={phi.shape}, rhs={rhs.shape}, lam={lam.shape}, D_xx={D_xx.shape}, D_yy={D_yy.shape}, D_zz={D_zz.shape}.")
 
         self.compute_discretization(lam, D_xx, D_yy, D_zz)
 
         if self.fixed:
-            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_routine(do_BCs3D(phi), rhs, self.fcycle), phi)
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_cycle(do_BCs(phi), rhs, self.fcycle), phi)
             count = self.max_iters_outer
         else:
             def cond(arg):
@@ -346,7 +368,7 @@ class Solver_3D:
             def body(arg):
                 phi, count, dist = arg
                 distance = partial(self.distance, phi)
-                phi = self.multigrid_routine(do_BCs3D(phi), rhs, self.fcycle)
+                phi = self.multigrid_cycle(do_BCs(phi), rhs, self.fcycle)
                 dist = distance(phi)
                 #jax.debug.print("count: {}, dist = {}", count, dist)
                 return (phi, count + 1, dist)
@@ -355,23 +377,21 @@ class Solver_3D:
 
         return phi, count
 
-    # hopefully changed to 3D
     def distance(self, phi_old, phi):
         """
-        Compute distance to previous step.
+        Compute distance (here: infinity norm of vectors) to previous step.
 
-        A step/iteration corresponds to a call to `multigrid_routine` within the while loop in `solve`.
+        A step (iteration) corresponds to a call of `multigrid_cycle` within the while loop in `solve`.
 
         Args:
-            phi_old (jax.Array): Value before current call to `multigrid_routine`.
-            phi (jax.Array): Return value of `multigrid_routine`.
+           phi_old (jax.Array): Previous value (i.e., before current call to `multigrid_cycle`).
+            phi (jax.Array): Return value of `multigrid_cycle`.
 
         Returns:
             float: Maximum absolute difference between `phi` and `phi_old`.
         """
         return jnp.max(jnp.abs(phi_old - phi))
 
-    # hopefully changed to 3D
     def compute_residual(self, phi, rhs): # pragma: no cover
         """
         UNUSED.
@@ -386,9 +406,9 @@ class Solver_3D:
             jax.Array: residual array
         """
         if self.spatial_diffusion:
-            residual = self.AMat_ccc[0][1:-3, 1:-3, 1:-3] * phi[2:-2, 2:-2, 2:-2] - self.AMat_lcc[0][1:-3, 1:-3, 1:-3] * phi[2:-2, 2:-2, 1:-3] - self.AMat_rcc[0][1:-3, 1:-3, 1:-3] * phi[2:-2, 2:-2, 3:-1] - self.AMat_clc[0][1:-3, 1:-3, 1:-3] * phi[ 2:-2, 1:-3, 2:-2] - self.AMat_crc[0][1:-3, 1:-3, 1:-3] * phi[2:-2, 3:-1, 2:-2] - self.AMat_clc[0][1:-3, 1:-3, 1:-3] * phi[1:-3, 2:-2, 2:-2] - self.AMat_crc[0][1:-3, 1:-3, 1:-3] * phi[3:-1, 2:-2, 2:-2] + rhs[2:-2, 2:-2, 2:-2]
+            residual = self.AMat_ccc[0][1:-1, 1:-1, 1:-1] * phi[2:-2, 2:-2, 2:-2] - self.AMat_lcc[0][1:-1, 1:-1, 1:-1] * phi[2:-2, 2:-2, 1:-3] - self.AMat_rcc[0][1:-1, 1:-1, 1:-1] * phi[2:-2, 2:-2, 3:-1] - self.AMat_clc[0][1:-1, 1:-1, 1:-1] * phi[2:-2, 1:-3, 2:-2] - self.AMat_crc[0][1:-1, 1:-1, 1:-1] * phi[2:-2, 3:-1, 2:-2] - self.AMat_clc[0][1:-1, 1:-1, 1:-1] * phi[1:-3, 2:-2, 2:-2] - self.AMat_crc[0][1:-1, 1:-1, 1:-1] * phi[3:-1, 2:-2, 2:-2] + rhs[2:-2, 2:-2, 2:-2]
         else:
-            residual = (self.AMat_ccc[0] if self.scalar_lambda else self.AMat_ccc[0][1:-3, 1:-3, 1:-3]) * phi[2:-2, 2:-2, 2:-2] - self.AMat_x[0] * phi[2:-2, 2:-2, 1:-3] - self.AMat_x[0] * phi[2:-2, 2:-2, 3:-1] - self.AMat_y[0] * phi[2:-2, 1:-3, 2:-2] - self.AMat_y[0] * phi[2:-2, 3:-1, 2:-2] - self.AMat_z[0] * phi[1:-3, 2:-2, 2:-2] - self.AMat_z[0] * phi[3:-1, 2:-2, 2:-2] + rhs[2:-2, 2:-2, 2:-2]
+            residual = (self.AMat_ccc[0] if self.scalar_lambda else self.AMat_ccc[0][1:-1, 1:-1, 1:-1]) * phi[2:-2, 2:-2, 2:-2] - self.AMat_x[0] * phi[2:-2, 2:-2, 1:-3] - self.AMat_x[0] * phi[2:-2, 2:-2, 3:-1] - self.AMat_y[0] * phi[2:-2, 1:-3, 2:-2] - self.AMat_y[0] * phi[2:-2, 3:-1, 2:-2] - self.AMat_z[0] * phi[1:-3, 2:-2, 2:-2] - self.AMat_z[0] * phi[3:-1, 2:-2, 2:-2] + rhs[2:-2, 2:-2, 2:-2]
         return residual
 
     def compute_error(self, phi, rhs): # pragma: no cover
@@ -422,21 +442,21 @@ class Solver_3D:
         return jnp.linalg.norm(self.compute_residual(phi, rhs))
 
     # same in 2D and 3D
-    def multigrid_routine(self, phi, rhs, fcycle=False, level=0):
+    def multigrid_cycle(self, phi, rhs, fcycle=False, level=0):
         """
-        Recursive multigrid routine.
+        Recursively defined multigrid cycle.
 
         Behavior is controlled by members:
             self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
-            self.nu1 (int): Smoothing iterations before `defect` / restriction operation.
+            self.nu1 (int): Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
             self.nu2 (int): Smoothing iterations after `prolongate`.
             self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
-            rhs (jax.Array): Right-hand side of the equation.
+            rhs (jax.Array): Current right-hand side of the equation.
             level (int, optional): Current multigrid level (`0`: finest/highest resolution, ..., `self.levels-1`: coarsest/lowest resolution). Defaults to `0`.
-            fcycle (bool, optional): Use F-cycle (i.e. do two recursive calls where the first one uses the F-gamma-cycle recursively and the second one performs a regular gamma-cycle). Defaults to `False`.
+            fcycle (bool, optional): Use F-cycle (i.e., do two recursive calls where the first one uses the F-gamma-cycle recursively and the second one performs a regular gamma-cycle). Defaults to `False`.
 
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
@@ -463,18 +483,19 @@ class Solver_3D:
             rhs_c = self.defect(phi, rhs, level)
             phi_c = jnp.full(self.arr_shape[level + 1], 0.)
             if fcycle:
-                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, True, level + 1), phi_c)
-            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_routine(phi_c, rhs_c, False, level + 1), phi_c)
+                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
+            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
             phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
 
         return phi
 
-    # hopefully changed to 3D
     def defect(self, phi, rhs, level):
         """
         Compute defect for current solution and assign to coarser grid.
 
-        Corresponds to residual computation and restriction.
+        Corresponds to residual computation and full-weighting restriction.
+
+        Assumes that at least one RBGS pre-smoothing step was performed (i.e., that `self.nu1 > 0`).
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
@@ -488,24 +509,24 @@ class Solver_3D:
         rhs_c = jnp.empty(self.arr_shape[level + 1])
 
         if self.spatial_diffusion:
-            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level][:-2, :-2, :-2] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level][:-2, :-2, :-2] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level][:-2, :-2, :-2] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level][:-2, :-2, :-2] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level][:-2, :-2, :-2] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
+            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level] * phi[1:-1, 1:-1, 1:-1] - self.AMat_lcc[level] * phi[1:-1, 1:-1, :-2] - self.AMat_rcc[level] * phi[1:-1, 1:-1, 2:] - self.AMat_clc[level] * phi[1:-1, :-2, 1:-1] - self.AMat_crc[level] * phi[1:-1, 2:, 1:-1]  - self.AMat_ccl[level] * phi[:-2, 1:-1, 1:-1] - self.AMat_ccr[level] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
 
         else:
-            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set((self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][:-2, :-2, :-2]) * phi[1:-1, 1:-1, 1:-1] - self.AMat_x[level] * phi[1:-1, 1:-1, :-2] - self.AMat_x[level] * phi[1:-1, 1:-1, 2:] - self.AMat_y[level] * phi[1:-1, :-2, 1:-1] - self.AMat_y[level] * phi[1:-1, 2:, 1:-1] - self.AMat_z[level] * phi[:-2, 1:-1, 1:-1] - self.AMat_z[level] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
+            del_fine = del_fine.at[1:-1, 1:-1, 1:-1].set(self.AMat_ccc[level] * phi[1:-1, 1:-1, 1:-1] - self.AMat_x[level] * phi[1:-1, 1:-1, :-2] - self.AMat_x[level] * phi[1:-1, 1:-1, 2:] - self.AMat_y[level] * phi[1:-1, :-2, 1:-1] - self.AMat_y[level] * phi[1:-1, 2:, 1:-1] - self.AMat_z[level] * phi[:-2, 1:-1, 1:-1] - self.AMat_z[level] * phi[2:, 1:-1, 1:-1] + rhs[1:-1, 1:-1, 1:-1])
 
-        del_fine = do_BCs3D(del_fine)
+        del_fine = do_BCs(del_fine)
+        # full-weighting restriction, exploiting that black points have a defect of zero after RBGS pre-smoothing
         rhs_c = rhs_c.at[1:-1, 1:-1, 1:-1].set(0.03125 * (del_fine[1:-1:2, 2::2, 2::2] + del_fine[1:-1:2, 2::2, :-2:2] + del_fine[1:-1:2, :-2:2, 2::2] + del_fine[1:-1:2, :-2:2, :-2:2] + del_fine[2::2, 1:-1:2, 2::2] + del_fine[2::2, 1:-1:2, :-2:2] + del_fine[:-2:2, 1:-1:2, 2::2] + del_fine[:-2:2, 1:-1:2, :-2:2] + del_fine[2::2, 2::2, 1:-1:2] + del_fine[2::2, :-2:2, 1:-1:2] + del_fine[:-2:2, 2::2, 1:-1:2] + del_fine[:-2:2, :-2:2, 1:-1:2]) + 0.125 * del_fine[1:-1:2, 1:-1:2, 1:-1:2])
-        rhs_c = do_BCs3D(rhs_c)
+        rhs_c = do_BCs(rhs_c)
 
         return rhs_c
 
-    # hopefully changed to 3D
     def prolongate(self, phi_c, level):
         """
-        Interpolate the correction computed on a coarser grid into a finer grid.
+        Interpolate the computed coarse-grid correction into a finer grid.
 
         Args:
-            phi_c (jax.Array): Correction computed on a coarser grid (i.e. on `level + 1`)
+            phi_c (jax.Array): Computed coarse-grid correction (from `level + 1`)
             level (int): Current multigrid level, corresponding to finer grid.
 
         Returns:
@@ -517,17 +538,17 @@ class Solver_3D:
         corr = corr.at[1:-1:2, 1:-1:2, 2:-1:2].set(0.5 * (corr[1:-1:2, 1:-1:2, 3::2] + corr[1:-1:2, 1:-1:2, 1:-2:2])) # linear interpolation in x
         corr = corr.at[1:-1:2, 2:-1:2, 1:-1:2].set(0.5 * (corr[1:-1:2, 3::2, 1:-1:2] + corr[1:-1:2, 1:-2:2, 1:-1:2])) # linear interpolation in y
         corr = corr.at[2:-1:2, 1:-1:2, 1:-1:2].set(0.5 * (corr[3::2, 1:-1:2, 1:-1:2] + corr[1:-2:2, 1:-1:2, 1:-1:2])) # linear interpolation in z
-        corr = corr.at[1:-1:2, 2:-1:2, 2:-1:2].set(0.25 * (corr[1:-1:2, 3::2, 3::2] + corr[1:-1:2, 1:-2:2, 3::2] + corr[1:-1:2, 3::2, 1:-2:2] + corr[1:-1:2, 1:-2:2, 1:-2:2])) # di-linear interpolation in x and y
-        corr = corr.at[2:-1:2, 1:-1:2, 2:-1:2].set(0.25 * (corr[3::2, 1:-1:2, 3::2] + corr[1:-2:2, 1:-1:2, 3::2] + corr[3::2, 1:-1:2, 1:-2:2] + corr[1:-2:2, 1:-1:2, 1:-2:2])) # di-linear interpolation in x and z
-        corr = corr.at[2:-1:2, 2:-1:2, 1:-1:2].set(0.25 * (corr[3::2, 3::2, 1:-1:2] + corr[1:-2:2, 3::2, 1:-1:2] + corr[3::2, 1:-2:2, 1:-1:2] + corr[1:-2:2, 1:-2:2, 1:-1:2])) # di-linear interpolation in y and z
-        corr = corr.at[2:-1:2, 2:-1:2, 2:-1:2].set(0.125 * (corr[3::2, 3::2, 3::2] + corr[1:-2:2, 3::2, 3::2] + corr[3::2, 1:-2:2, 3::2] + corr[1:-2:2, 1:-2:2, 3::2] + corr[3::2, 3::2, 1:-2:2] + corr[1:-2:2, 3::2, 1:-2:2] + corr[3::2, 1:-2:2, 1:-2:2] + corr[1:-2:2, 1:-2:2, 1:-2:2])) # tri-linear interpolation 
+        if self.nu2 <= 0: # skip points overridden in red RBGS sweep; could skip linear & trilinear parts instead if post-smoothing RBGS sweep order is changed to black-first
+            corr = corr.at[1:-1:2, 2:-1:2, 2:-1:2].set(0.25 * (corr[1:-1:2, 3::2, 3::2] + corr[1:-1:2, 1:-2:2, 3::2] + corr[1:-1:2, 3::2, 1:-2:2] + corr[1:-1:2, 1:-2:2, 1:-2:2])) # bilinear interpolation in x and y
+            corr = corr.at[2:-1:2, 1:-1:2, 2:-1:2].set(0.25 * (corr[3::2, 1:-1:2, 3::2] + corr[1:-2:2, 1:-1:2, 3::2] + corr[3::2, 1:-1:2, 1:-2:2] + corr[1:-2:2, 1:-1:2, 1:-2:2])) # bilinear interpolation in x and z
+            corr = corr.at[2:-1:2, 2:-1:2, 1:-1:2].set(0.25 * (corr[3::2, 3::2, 1:-1:2] + corr[1:-2:2, 3::2, 1:-1:2] + corr[3::2, 1:-2:2, 1:-1:2] + corr[1:-2:2, 1:-2:2, 1:-1:2])) # bilinear interpolation in y and z
+        corr = corr.at[2:-1:2, 2:-1:2, 2:-1:2].set(0.125 * (corr[3::2, 3::2, 3::2] + corr[1:-2:2, 3::2, 3::2] + corr[3::2, 1:-2:2, 3::2] + corr[1:-2:2, 1:-2:2, 3::2] + corr[3::2, 3::2, 1:-2:2] + corr[1:-2:2, 3::2, 1:-2:2] + corr[3::2, 1:-2:2, 1:-2:2] + corr[1:-2:2, 1:-2:2, 1:-2:2])) # trilinear interpolation 
 
         return corr
 
-    # hopefully changed to 3D
     def red_black_gauss_seidel(self, phi, rhs, level):
         """
-        Red-Black Gauss-Seidel routine for smoothing, i.e. reducing high-frequency errors.
+        Red-Black Gauss-Seidel (RBGS) routine for smoothing (i.e., reducing high-frequency errors).
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
@@ -537,20 +558,20 @@ class Solver_3D:
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
         """
-        phi = do_BCs3D(phi)
+        phi = do_BCs(phi)
 
         for (lx, ly, lz) in [ (0,0,0), (0,1,1), (1,1,0), (1,0,1), (1,0,0), (0,1,0), (0,0,1), (1,1,1) ]:
             if self.spatial_diffusion:
-                phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_ccr[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_ccl[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] + 
-                                                                   self.AMat_crc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_clc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] + 
-                                                                   self.AMat_rcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_lcc[level][lz:-2:2, ly:-2:2, lx:-2:2] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
-                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / self.AMat_ccc[level][lz:-2:2, ly:-2:2, lx:-2:2])
+                phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_ccr[level][lz::2, ly::2, lx::2] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_ccl[level][lz::2, ly::2, lx::2] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] +
+                                                                   self.AMat_crc[level][lz::2, ly::2, lx::2] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_clc[level][lz::2, ly::2, lx::2] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] +
+                                                                   self.AMat_rcc[level][lz::2, ly::2, lx::2] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_lcc[level][lz::2, ly::2, lx::2] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
+                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / self.AMat_ccc[level][lz::2, ly::2, lx::2])
             else:
                 phi = phi.at[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2].set((self.AMat_z[level] * phi[lz+2::2, ly+1:-1:2, lx+1:-1:2] + self.AMat_z[level] * phi[lz:-2:2, ly+1:-1:2, lx+1:-1:2] +
                                                                    self.AMat_y[level] * phi[lz+1:-1:2, ly+2::2, lx+1:-1:2] + self.AMat_y[level] * phi[lz+1:-1:2, ly:-2:2, lx+1:-1:2] +
                                                                    self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx+2::2] + self.AMat_x[level] * phi[lz+1:-1:2, ly+1:-1:2, lx:-2:2] -
-                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / (self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][lz:-2:2, ly:-2:2, lx:-2:2]))
-            phi = do_BCs3D(phi)
+                                                                   rhs[lz+1:-1:2, ly+1:-1:2, lx+1:-1:2]) / (self.AMat_ccc[level] if self.scalar_lambda else self.AMat_ccc[level][lz::2, ly::2, lx::2]))
+            phi = do_BCs(phi)
 
         return phi
 

@@ -1,6 +1,6 @@
 import numpy as np
 from jsolver.grid_1d import grid_1D
-from jsolver.solver_3d import solve_3d_simple
+from jsolver.solver_2d import solve_2d_simple
 import time
 
 # cache all jit-compiled functions in local directory to avoid recompilation across multiple runs of this script
@@ -12,44 +12,36 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 jax.config.update("jax_persistent_cache_enable_xla_caches", "xla_gpu_per_fusion_autotune_cache_dir")
 
 # create linear grid objects with desired resolution
-x_res = 32 # first dimension
-y_res = 32 # second dimension
-z_res = 32 # third dimension
+x_res = 128 # column-dimension
+y_res = 128 # row-dimension
 grid_x = grid_1D(x_res) # centered linear grid for interval [0,1]
 grid_y = grid_1D(y_res)
-grid_z = grid_1D(z_res)
-arr_shape = (z_res + 3, y_res + 3, x_res + 3) # first dimension comes last
+arr_shape = (y_res + 3, x_res + 3) # row-dimension comes first in numpy!
 
 # set up problem using numpy ("broadcasting")
 D_xx = 1.0
 D_yy = 1.0
-D_zz = 1.0
 phi = np.zeros(arr_shape)
-lam = 0.0
-x = grid_x.centers[np.newaxis, np.newaxis, :]
-y = grid_y.centers[np.newaxis, :, np.newaxis]
-z = grid_z.centers[:, np.newaxis, np.newaxis]
-ox = 1.0 - x
-#print(grid_x.centers.shape, x.shape, y.shape, z.shape)
-#print(x)
-oy = 1.0 - y
-oz = 1.0 - z
-prod_y = y * oy
-prod_z = z * oz
-phi_ana = x * ox ** 3 * prod_y * prod_z
-rhs = -6 * ox * (ox - x) * prod_y * prod_z - 2 * x * ox ** 3 * prod_z - 2 * x * ox ** 3 * prod_y 
+lam = 0.
+x = grid_x.centers[np.newaxis]
+y = grid_y.centers[:, np.newaxis]
+ox = 1. - x
+oy = 1. - y
+prod = y * oy
+phi_ana = x * ox ** 3 * prod
+rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
 
 # solve problem
 curr_time = time.time()
-phi_res, iterations = solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz)
+phi_res, iterations = solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy)
 jax.block_until_ready(phi_res)
 print(f"Warm-up run took {time.time() - curr_time} s")
-err = (phi_ana - phi_res)[1:-1, 1:-1, 1:-1]
+err = (phi_ana - phi_res)[1:-1, 1:-1]
 rmse = np.linalg.norm(err) / np.sqrt(err.size)
 print(f"Type of 'phi_res': {type(phi_res)}, Iterations: {iterations}, RMSE: {rmse}")
 for i in range(3):
     curr_time = time.time()
-    phi_res, iterations = solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz)
+    phi_res, iterations = solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy)
     jax.block_until_ready(phi_res)
     print(f"Repeated run {i} took {time.time() - curr_time} s")
 

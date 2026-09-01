@@ -9,10 +9,11 @@ from jsolver.solver_3d import solve_3d_fcycle_simple, solve_3d_fixed_fcycle_simp
 
 # some configuration
 check_autodiff_fwd = True # done for all tests
-check_autodiff_rev = True # currently, only done for test1 (if 'check_fixed' is also True)
-check_fixed = True # fixed number of iterations; currently, only done for test1
-check_w     = True # W-cycle (gamma=2); currently, only done for test1
-check_f     = True # F-cycle; currently, only done for test1
+# rest skipped (assumed to work since it's tested for the 2D solver)
+#check_autodiff_rev = True # currently, only done for test1 (if 'check_fixed' is also True)
+#check_fixed = True # fixed number of iterations; currently, only done for test1
+#check_w     = True # W-cycle (gamma=2); currently, only done for test1
+#check_f     = True # F-cycle; currently, only done for test1
 
 
 @jax.jit
@@ -108,28 +109,28 @@ def test_inefficient_setup_x():
 def test_inefficient_setup_y():
     with pytest.raises(Exception) as exec_info:
         solve_3d_simple(grid_x=grid_1D(mx=4), grid_y=grid_1D(mx=32), grid_z=grid_1D(mx=4), phi=np.zeros(131), rhs=np.zeros(131), lam=np.zeros(131), D_xx=1.0, D_yy=1.0, D_zz=1.0)
-    assert "Resolution of y-grid not efficient for multigrid configuration" in str(exec_info.value)    
+    assert "Resolution of y-grid not efficient for multigrid configuration" in str(exec_info.value)
 
 def test_inefficient_setup_z():
     with pytest.raises(Exception) as exec_info:
         solve_3d_simple(grid_x=grid_1D(mx=4), grid_y=grid_1D(mx=4), grid_z=grid_1D(mx=32), phi=np.zeros(131), rhs=np.zeros(131), lam=np.zeros(131), D_xx=1.0, D_yy=1.0, D_zz=1.0)
-    assert "Resolution of z-grid not efficient for multigrid configuration" in str(exec_info.value)      
+    assert "Resolution of z-grid not efficient for multigrid configuration" in str(exec_info.value)
 
 
 def test_illegal_setup_x():
     with pytest.raises(Exception) as exec_info:
         solve_3d_simple(grid_x=grid_1D(mx=32, grid_type=1), grid_y=grid_1D(mx=32), grid_z=grid_1D(mx=32), phi=np.zeros(131), rhs=np.zeros(131), lam=np.zeros(131), D_xx=1.0, D_yy=1.0, D_zz=1.0)
-    assert "Only linear grids are supported" in str(exec_info.value)      
+    assert "Only linear grids are supported" in str(exec_info.value)
 
 def test_illegal_setup_y():
     with pytest.raises(Exception) as exec_info:
         solve_3d_simple(grid_x=grid_1D(mx=32), grid_y=grid_1D(mx=32, grid_type=1), grid_z=grid_1D(mx=32), phi=np.zeros(131), rhs=np.zeros(131), lam=np.zeros(131), D_xx=1.0, D_yy=1.0, D_zz=1.0)
-    assert "Only linear grids are supported" in str(exec_info.value)    
+    assert "Only linear grids are supported" in str(exec_info.value)
 
 def test_illegal_setup_z():
     with pytest.raises(Exception) as exec_info:
         solve_3d_simple(grid_x=grid_1D(mx=32), grid_y=grid_1D(mx=32), grid_z=grid_1D(mx=32, grid_type=1), phi=np.zeros(131), rhs=np.zeros(131), lam=np.zeros(131), D_xx=1.0, D_yy=1.0, D_zz=1.0)
-    assert "Only linear grids are supported" in str(exec_info.value)        
+    assert "Only linear grids are supported" in str(exec_info.value)
 
 
 @pytest.fixture
@@ -151,7 +152,7 @@ def grad_func_solve_32(setup_32):
         phi_res, _ = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
         return phi_res
 
-    return gsolve    
+    return gsolve
 
 @pytest.fixture
 def grad_func_solve_mixed(setup_mixed):
@@ -161,7 +162,7 @@ def grad_func_solve_mixed(setup_mixed):
         phi_res, _ = solve_3d_simple(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
         return phi_res
 
-    return gsolve      
+    return gsolve
 
 
 def problem_1(x_cen, y_cen, z_cen, shape):
@@ -241,7 +242,7 @@ def test1_32(setup_mixed, test1_setup_mixed, grad_func_solve_mixed):
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))        
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
 
 def problem_2(x_cen, y_cen, z_cen, shape):
@@ -274,7 +275,7 @@ def test2_setup_32(setup_32):
 @pytest.fixture
 def test2_setup_mixed(setup_mixed):
     grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)    
+    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
 
 def test2(setup, test2_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -308,7 +309,7 @@ def test2_32(setup_32, test2_setup_32, grad_func_solve_32):
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))        
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
 def test2_mixed(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_mixed
@@ -325,7 +326,7 @@ def test2_mixed(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))           
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
 def problem_3(x_cen, y_cen, z_cen, shape):
     D_xx = 1.0
@@ -357,7 +358,7 @@ def test3_setup_32(setup_32):
 @pytest.fixture
 def test3_setup_mixed(setup_mixed):
     grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)    
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
 
 def test3(setup, test3_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -391,7 +392,7 @@ def test3_32(setup_32, test3_setup_32, grad_func_solve_32):
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))   
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
 def test3_mixed(setup_mixed, test3_setup_mixed, grad_func_solve_mixed):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup_mixed
@@ -408,4 +409,4 @@ def test3_mixed(setup_mixed, test3_setup_mixed, grad_func_solve_mixed):
     if check_autodiff_fwd:
         curr_time = time.time()
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
-        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))           
+        print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))

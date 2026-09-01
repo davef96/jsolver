@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 
-def do_BCs3D(arr, rim=1, direction=-1, vals_xb=None, vals_xe=None, vals_yb=None, vals_ye=None, vals_zb=None, vals_ze=None):
+def do_BCs(arr, rim=1, direction=-1, vals_xb=None, vals_xe=None, vals_yb=None, vals_ye=None, vals_zb=None, vals_ze=None):
     """
     Boundary conditions on 3D plane.
 

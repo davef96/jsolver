@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 #from jax.test_util import check_grads
 from jsolver.grid_1d import grid_1D
-from jsolver.solver_2d import solve_2d, solve_2d_simple, solve_2d_fixed_simple, solve_2d_fixed_fcycle_simple, solve_2d_fcycle_simple
+from jsolver.solver_2d import solve_2d_simple, solve_2d_fixed_simple, solve_2d_fixed_fcycle_simple, solve_2d_fcycle_simple, solve_2d_fixed_wcycle_simple, solve_2d_wcycle_simple, solve_2d_fcycle_skip_pre_simple, solve_2d_skip_pre_simple, solve_2d_wcycle_skip_pre_simple, solve_2d_fixed_skip_pre_simple, solve_2d_fixed_fcycle_skip_pre_simple, solve_2d_fixed_wcycle_skip_pre_simple # benchmark 2D solver
 import time
 #import timeit
 import argparse
@@ -19,8 +19,10 @@ from functools import partial
 #jax.config.update('jax_exec_time_optimization_effort', 1.0)
 #jax.config.update('jax_memory_fitting_effort', 1.0)
 
-# dictionary: (problem, resolution) --> (iterations, rmse)
-reference = {
+# dictionaries were obtained from running the reference solver
+
+# dictionary (V-cycle): (problem, resolution) --> (iterations, rmse)
+reference_v = {
     (1, 8): (12, 0.0002316246921061767),
     (1, 16): (12, 6.133035189023003e-05),
     (1, 32): (13, 1.57976014514119e-05),
@@ -128,7 +130,507 @@ reference = {
     (11, 16384): (60, 2.386464395180635e-09),
 }
 
-def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True, bench_jvp=True, bench_vjp=True, reps=10, reps_details=1, reps_util=1, reps_transfer=10, isolate=0, skip=0, cutoff=0, start=0, problem_type=None, export=False, save_result=False, file_prefix=None, file_suffix=None, scalar_lambda=True, fcycle=False, timestamp=False, jit_details=False, details_only=False, cpu_utilization=False, gpu_utilization=False, fixed=False, remat=False, force_iterations=0, smi=False, export_internals=False, bench_transfer=False, transfer_only=False, max_mem=False):
+# dictionary (V-cycle; skip consecutive pre-smoothing for highest resolution): (problem, resolution) --> (iterations, rmse)
+reference_vskip = {
+    (1, 8): (15, 0.0002316246920928992),
+    (1, 16): (15, 6.133035183738675e-05),
+    (1, 32): (14, 1.579760144391777e-05),
+    (1, 64): (13, 4.010172727495267e-06),
+    (1, 128): (13, 1.01031542404558e-06),
+    (1, 256): (13, 2.53561694132353e-07),
+    (1, 512): (13, 6.351400125059963e-08),
+    (1, 1024): (13, 1.589398831859056e-08),
+    (1, 2048): (13, 3.975454881102004e-09),
+    (1, 4096): (13, 9.941205690072217e-10),
+    (1, 8192): (13, 2.485753762558888e-10),
+    (1, 16384): (13, 6.21592343814653e-11),
+    (2, 8): (15, 0.005755887431939238),
+    (2, 16): (15, 0.001514806795324035),
+    (2, 32): (15, 0.0003896134202940626),
+    (2, 64): (15, 9.886612169239417e-05),
+    (2, 128): (15, 2.490588075977417e-05),
+    (2, 256): (15, 6.250556488934192e-06),
+    (2, 512): (15, 1.565676350712706e-06),
+    (2, 1024): (15, 3.918003984003891e-07),
+    (2, 2048): (15, 9.799774343954763e-08),
+    (2, 4096): (15, 2.450544089337618e-08),
+    (2, 8192): (15, 6.127082796149458e-09),
+    (2, 16384): (15, 1.531792912570984e-09),
+    (3, 8): (24, 0.00519322805865961),
+    (3, 16): (29, 0.001348083634706579),
+    (3, 32): (33, 0.0003446304408803342),
+    (3, 64): (39, 8.725944838139262e-05),
+    (3, 128): (45, 2.197736632344448e-05),
+    (3, 256): (52, 5.519946064666477e-06),
+    (3, 512): (60, 1.384419687900096e-06),
+    (3, 1024): (68, 3.469509245194059e-07),
+    (3, 2048): (78, 8.691248671560935e-08),
+    (3, 4096): (88, 2.176620598055583e-08),
+    (3, 8192): (98, 5.450104340917139e-09),
+    (3, 16384): (109, 1.36464279531954e-09),
+    (4, 8): (44, 0.005049861248609077),
+    (4, 16): (89, 0.001312846780833586),
+    (4, 32): (185, 0.0003373750023151869),
+    (4, 64): (381, 8.596967780840068e-05),
+    (4, 128): (770, 2.179081821241295e-05),
+    (4, 256): (1522, 5.505458458762354e-06),
+    (4, 512): (2936, 1.388134057161302e-06),
+    (4, 1024): (5513, 3.495320670221126e-07),
+    (4, 2048): (10060, 8.793067997300925e-08),
+    (4, 4096): (17783, 2.210993047074503e-08),
+    (4, 8192): (30335, 5.569482079095282e-09),
+    (4, 16384): (49607, 1.446973987076602e-09),
+    (5, 8): (92, 0.005739437566369739),
+    (5, 16): (208, 0.001510517811999955),
+    (5, 32): (308, 0.0003885129024463456),
+    (5, 64): (309, 9.858702741604349e-05),
+    (5, 128): (264, 2.483558318041548e-05),
+    (5, 256): (224, 6.232914726801392e-06),
+    (5, 512): (214, 1.561257181769362e-06),
+    (5, 1024): (210, 3.906936796864997e-07),
+    (5, 2048): (208, 9.771739613373222e-08),
+    (5, 4096): (208, 2.442133962894638e-08),
+    (5, 8192): (207, 6.051446289676874e-09),
+    (5, 16384): (208, 1.295088587166457e-09),
+    (9, 8): (42, 0.006218383015380425),
+    (9, 16): (87, 0.001634732335806115),
+    (9, 32): (182, 0.0004213283875964894),
+    (9, 64): (376, 0.0001073853922615971),
+    (9, 128): (760, 2.719754539542973e-05),
+    (9, 256): (1503, 6.863482758165223e-06),
+    (9, 512): (2898, 1.728338943214875e-06),
+    (9, 1024): (5435, 4.346416945034564e-07),
+    (9, 2048): (9897, 1.092065546003798e-07),
+    (9, 4096): (17450, 2.742448104726837e-08),
+    (9, 8192): (29677, 6.892274765615689e-09),
+    (9, 16384): (48369, 1.7630526378056e-09),
+    (10, 8): (24, 0.005459589664450656),
+    (10, 16): (29, 0.001421873425124045),
+    (10, 32): (33, 0.0003636870035078033),
+    (10, 64): (39, 9.205560539707939e-05),
+    (10, 128): (45, 2.31720275943804e-05),
+    (10, 256): (52, 5.816297759690328e-06),
+    (10, 512): (59, 1.457830944384984e-06),
+    (10, 1024): (68, 3.651328384444959e-07),
+    (10, 2048): (77, 9.141693982347029e-08),
+    (10, 4096): (87, 2.28828262134873e-08),
+    (10, 8192): (97, 5.727233629827745e-09),
+    (10, 16384): (111, 1.434582843888376e-09),
+    (11, 8): (36, 0.00835656082312912),
+    (11, 16): (52, 0.002341340860241902),
+    (11, 32): (67, 0.0006075975162201032),
+    (11, 64): (76, 0.0001541913422894889),
+    (11, 128): (79, 3.881907959048919e-05),
+    (11, 256): (78, 9.739157982213286e-06),
+    (11, 512): (74, 2.43921990627702e-06),
+    (11, 1024): (69, 6.103735873895346e-07),
+    (11, 2048): (63, 1.526658512895812e-07),
+    (11, 4096): (58, 3.817564326927109e-08),
+    (11, 8192): (58, 9.545038820008145e-09),
+    (11, 16384): (59, 2.386478605444075e-09),
+}
+
+# dictionary (F-cycle): (problem, resolution) --> (iterations, rmse)
+reference_f = {
+    (1, 8): (10, 0.0002316246920951082),
+    (1, 16): (9, 6.133035183722987e-05),
+    (1, 32): (9, 1.579760144260136e-05),
+    (1, 64): (8, 4.010172717473686e-06),
+    (1, 128): (8, 1.010315414037897e-06),
+    (1, 256): (7, 2.535616841085968e-07),
+    (1, 512): (7, 6.351399114119915e-08),
+    (1, 1024): (6, 1.58939733400002e-08),
+    (1, 2048): (6, 3.975444095297301e-09),
+    (1, 4096): (5, 9.941033443214292e-10),
+    (1, 8192): (5, 2.485592822044835e-10),
+    (1, 16384): (4, 6.21383934880468e-11),
+    (2, 8): (11, 0.005755887431937577),
+    (2, 16): (9, 0.001514806795330688),
+    (2, 32): (8, 0.0003896134203018442),
+    (2, 64): (7, 9.886612170040949e-05),
+    (2, 128): (6, 2.490588076704479e-05),
+    (2, 256): (5, 6.250556499957881e-06),
+    (2, 512): (4, 1.565676360009564e-06),
+    (2, 1024): (4, 3.918004531313281e-07),
+    (2, 2048): (4, 9.799774722658143e-08),
+    (2, 4096): (3, 2.450538974952883e-08),
+    (2, 8192): (3, 6.127029353443435e-09),
+    (2, 16384): (5, 1.531380815786243e-09),
+    (3, 8): (16, 0.005193228058684119),
+    (3, 16): (17, 0.001348083634717144),
+    (3, 32): (19, 0.0003446304409156867),
+    (3, 64): (20, 8.725944839775552e-05),
+    (3, 128): (21, 2.197736633525661e-05),
+    (3, 256): (22, 5.519946069315212e-06),
+    (3, 512): (23, 1.384419685464194e-06),
+    (3, 1024): (24, 3.469509238014041e-07),
+    (3, 2048): (25, 8.691246761328072e-08),
+    (3, 4096): (26, 2.176619257472329e-08),
+    (3, 8192): (26, 5.45020572332636e-09),
+    (3, 16384): (28, 1.364541863796142e-09),
+    (4, 8): (25, 0.005049861248655043),
+    (4, 16): (47, 0.001312846780870507),
+    (4, 32): (93, 0.0003373750023070663),
+    (4, 64): (188, 8.596967774455627e-05),
+    (4, 128): (374, 2.179081805872177e-05),
+    (4, 256): (725, 5.505458162117647e-06),
+    (4, 512): (1365, 1.388133536183853e-06),
+    (4, 1024): (2489, 3.495311022676717e-07),
+    (4, 2048): (4376, 8.792887362624552e-08),
+    (4, 4096): (7375, 2.210616884412199e-08),
+    (4, 8192): (11823, 5.56097035126131e-09),
+    (4, 16384): (17781, 1.417353060605336e-09),
+    (5, 8): (49, 0.005739437566369551),
+    (5, 16): (110, 0.001510517811998885),
+    (5, 32): (165, 0.0003885129024462538),
+    (5, 64): (163, 9.858702741582637e-05),
+    (5, 128): (130, 2.483558318054172e-05),
+    (5, 256): (97, 6.232914728071732e-06),
+    (5, 512): (76, 1.561257183526435e-06),
+    (5, 1024): (60, 3.906936876343527e-07),
+    (5, 2048): (48, 9.77173953301086e-08),
+    (5, 4096): (38, 2.442129533127862e-08),
+    (5, 8192): (36, 6.051580026359706e-09),
+    (5, 16384): (81, 1.29483874139009e-09),
+    (9, 8): (24, 0.006218383015440465),
+    (9, 16): (46, 0.001634732335839623),
+    (9, 32): (92, 0.0004213283876007125),
+    (9, 64): (186, 0.0001073853922346549),
+    (9, 128): (371, 2.719754531469176e-05),
+    (9, 256): (719, 6.863482600000232e-06),
+    (9, 512): (1354, 1.728338660673776e-06),
+    (9, 1024): (2467, 4.346411393552931e-07),
+    (9, 2048): (4331, 1.092054418945371e-07),
+    (9, 4096): (7283, 2.742210969956251e-08),
+    (9, 8192): (11644, 6.886718831190806e-09),
+    (9, 16384): (17454, 1.741846885652761e-09),
+    (10, 8): (16, 0.005459589664472029),
+    (10, 16): (17, 0.001421873425132655),
+    (10, 32): (19, 0.0003636870035381864),
+    (10, 64): (20, 9.205560541357909e-05),
+    (10, 128): (21, 2.317202760585709e-05),
+    (10, 256): (22, 5.816297772716285e-06),
+    (10, 512): (23, 1.457830955485888e-06),
+    (10, 1024): (24, 3.65132830937058e-07),
+    (10, 2048): (25, 9.141694093412711e-08),
+    (10, 4096): (26, 2.288270332900467e-08),
+    (10, 8192): (26, 5.727362232924095e-09),
+    (10, 16384): (27, 1.434695908695282e-09),
+    (11, 8): (22, 0.008356560823144354),
+    (11, 16): (29, 0.002341340860243419),
+    (11, 32): (35, 0.0006075975162138361),
+    (11, 64): (39, 0.0001541913422816087),
+    (11, 128): (40, 3.881907958516623e-05),
+    (11, 256): (38, 9.739157981076583e-06),
+    (11, 512): (36, 2.439219904675359e-06),
+    (11, 1024): (32, 6.103735923441649e-07),
+    (11, 2048): (29, 1.526658473076784e-07),
+    (11, 4096): (26, 3.817565163577291e-08),
+    (11, 8192): (22, 9.545037870269767e-09),
+    (11, 16384): (20, 2.386464957666094e-09),
+}
+
+# dictionary (F-cycle; skip consecutive pre-smoothing for highest resolution): (problem, resolution) --> (iterations, rmse)
+reference_fskip = {
+    (1, 8): (15, 0.0002316246920927682),
+    (1, 16): (15, 6.133035183720584e-05),
+    (1, 32): (14, 1.579760144262148e-05),
+    (1, 64): (13, 4.010172717499263e-06),
+    (1, 128): (12, 1.010315414032195e-06),
+    (1, 256): (11, 2.535616841113557e-07),
+    (1, 512): (10, 6.351399098400069e-08),
+    (1, 1024): (9, 1.589397642872114e-08),
+    (1, 2048): (9, 3.975443042282621e-09),
+    (1, 4096): (8, 9.941074693442057e-10),
+    (1, 8192): (7, 2.485610559300556e-10),
+    (1, 16384): (6, 6.213544862208844e-11),
+    (2, 8): (12, 0.005755887431943571),
+    (2, 16): (11, 0.001514806795331633),
+    (2, 32): (9, 0.0003896134203018682),
+    (2, 64): (8, 9.886612170033771e-05),
+    (2, 128): (7, 2.490588076571522e-05),
+    (2, 256): (5, 6.25055649976198e-06),
+    (2, 512): (4, 1.56567636766038e-06),
+    (2, 1024): (4, 3.918004349120525e-07),
+    (2, 2048): (4, 9.799778829513272e-08),
+    (2, 4096): (3, 2.450540644350609e-08),
+    (2, 8192): (3, 6.126979723952477e-09),
+    (2, 16384): (4, 1.531733274741398e-09),
+    (3, 8): (23, 0.005193228058674456),
+    (3, 16): (25, 0.001348083634713582),
+    (3, 32): (26, 0.0003446304409065821),
+    (3, 64): (27, 8.725944839479308e-05),
+    (3, 128): (28, 2.197736633829976e-05),
+    (3, 256): (29, 5.519946075645582e-06),
+    (3, 512): (29, 1.384419689422138e-06),
+    (3, 1024): (30, 3.469509250769415e-07),
+    (3, 2048): (30, 8.691248199351672e-08),
+    (3, 4096): (30, 2.176620530629554e-08),
+    (3, 8192): (31, 5.450050179137365e-09),
+    (3, 16384): (31, 1.364399597108837e-09),
+    (4, 8): (42, 0.005049861248612265),
+    (4, 16): (83, 0.001312846780855043),
+    (4, 32): (168, 0.0003373750023181158),
+    (4, 64): (337, 8.596967778248483e-05),
+    (4, 128): (661, 2.17908181320916e-05),
+    (4, 256): (1257, 5.505458297191356e-06),
+    (4, 512): (2312, 1.388133770741601e-06),
+    (4, 1024): (4093, 3.495316001860509e-07),
+    (4, 2048): (6938, 8.793005302383293e-08),
+    (4, 4096): (11179, 2.210921216435577e-08),
+    (4, 8192): (16915, 5.569161709928165e-09),
+    (4, 16384): (23516, 1.445736089731474e-09),
+    (5, 8): (91, 0.005739437566369142),
+    (5, 16): (204, 0.001510517811998755),
+    (5, 32): (295, 0.0003885129024470354),
+    (5, 64): (272, 9.858702741640772e-05),
+    (5, 128): (190, 2.483558318010447e-05),
+    (5, 256): (142, 6.232914727888708e-06),
+    (5, 512): (102, 1.561257181067133e-06),
+    (5, 1024): (70, 3.906936820595277e-07),
+    (5, 2048): (51, 9.77173809449621e-08),
+    (5, 4096): (38, 2.442134350688155e-08),
+    (5, 8192): (33, 6.051587976683567e-09),
+    (5, 16384): (39, 1.295048679586438e-09),
+    (9, 8): (41, 0.006218383015412813),
+    (9, 16): (82, 0.001634732335825104),
+    (9, 32): (166, 0.0004213283875996463),
+    (9, 64): (334, 0.000107385392247212),
+    (9, 128): (656, 2.719754534750203e-05),
+    (9, 256): (1248, 6.863482661650344e-06),
+    (9, 512): (2295, 1.72833878185951e-06),
+    (9, 1024): (4059, 4.346414399763701e-07),
+    (9, 2048): (6865, 1.092061307092344e-07),
+    (9, 4096): (11030, 2.742402725878909e-08),
+    (9, 8192): (16634, 6.892255063001349e-09),
+    (9, 16384): (23022, 1.76235589395701e-09),
+    (10, 8): (23, 0.005459589664462719),
+    (10, 16): (25, 0.001421873425128307),
+    (10, 32): (26, 0.0003636870035283032),
+    (10, 64): (27, 9.205560540929206e-05),
+    (10, 128): (28, 2.317202760492497e-05),
+    (10, 256): (29, 5.81629777252441e-06),
+    (10, 512): (29, 1.457830957256543e-06),
+    (10, 1024): (30, 3.651328529283613e-07),
+    (10, 2048): (30, 9.141698790384215e-08),
+    (10, 4096): (30, 2.288274505923544e-08),
+    (10, 8192): (31, 5.727258807876652e-09),
+    (10, 16384): (33, 1.434828838219032e-09),
+    (11, 8): (35, 0.008356560823106299),
+    (11, 16): (51, 0.002341340860248385),
+    (11, 32): (64, 0.0006075975162208098),
+    (11, 64): (71, 0.0001541913422874831),
+    (11, 128): (73, 3.881907958744838e-05),
+    (11, 256): (69, 9.739157980803604e-06),
+    (11, 512): (64, 2.439219905274846e-06),
+    (11, 1024): (57, 6.103735936090688e-07),
+    (11, 2048): (50, 1.526658493125669e-07),
+    (11, 4096): (44, 3.817568291289623e-08),
+    (11, 8192): (38, 9.545097880258222e-09),
+    (11, 16384): (36, 2.386529645993014e-09),
+}
+
+# dictionary (W-cycle): (problem, resolution) --> (iterations, rmse)
+reference_w = {
+    (1, 8): (10, 0.0002316246920951082),
+    (1, 16): (9, 6.133035183722901e-05),
+    (1, 32): (9, 1.579760144260068e-05),
+    (1, 64): (8, 4.010172717504518e-06),
+    (1, 128): (8, 1.010315414035634e-06),
+    (1, 256): (7, 2.535616840377884e-07),
+    (1, 512): (7, 6.351399115291796e-08),
+    (1, 1024): (6, 1.589397248040721e-08),
+    (1, 2048): (6, 3.975443748009996e-09),
+    (1, 4096): (5, 9.94102690353927e-10),
+    (1, 8192): (5, 2.485582439392397e-10),
+    (1, 16384): (4, 6.213631466359556e-11),
+    (2, 8): (11, 0.005755887431937577),
+    (2, 16): (9, 0.001514806795331526),
+    (2, 32): (7, 0.0003896134203013565),
+    (2, 64): (6, 9.88661217008067e-05),
+    (2, 128): (5, 2.490588076692901e-05),
+    (2, 256): (4, 6.25055646779484e-06),
+    (2, 512): (4, 1.565676365754062e-06),
+    (2, 1024): (4, 3.918004305049684e-07),
+    (2, 2048): (3, 9.799761697882173e-08),
+    (2, 4096): (3, 2.450540757791205e-08),
+    (2, 8192): (3, 6.126962403354649e-09),
+    (2, 16384): (7, 1.531416102558784e-09),
+    (3, 8): (16, 0.005193228058684119),
+    (3, 16): (17, 0.001348083634719794),
+    (3, 32): (19, 0.0003446304409172993),
+    (3, 64): (19, 8.725944839918975e-05),
+    (3, 128): (20, 2.197736633805928e-05),
+    (3, 256): (20, 5.519946073669951e-06),
+    (3, 512): (21, 1.384419686952071e-06),
+    (3, 1024): (21, 3.469509075441291e-07),
+    (3, 2048): (21, 8.691246350922468e-08),
+    (3, 4096): (20, 2.1766123494364e-08),
+    (3, 8192): (20, 5.450122603580561e-09),
+    (3, 16384): (20, 1.364521041240572e-09),
+    (4, 8): (25, 0.005049861248655043),
+    (4, 16): (47, 0.001312846780872938),
+    (4, 32): (93, 0.0003373750023076145),
+    (4, 64): (186, 8.596967774247232e-05),
+    (4, 128): (366, 2.179081805806589e-05),
+    (4, 256): (701, 5.505458154139395e-06),
+    (4, 512): (1293, 1.388133517779157e-06),
+    (4, 1024): (2284, 3.495310714620567e-07),
+    (4, 2048): (3819, 8.792885572532389e-08),
+    (4, 4096): (5943, 2.210642155464527e-08),
+    (4, 8192): (8359, 5.562414397847148e-09),
+    (4, 16384): (9986, 1.423089977707106e-09),
+    (5, 8): (49, 0.005739437566369551),
+    (5, 16): (110, 0.001510517811998967),
+    (5, 32): (165, 0.0003885129024461244),
+    (5, 64): (164, 9.858702741532729e-05),
+    (5, 128): (127, 2.483558317864484e-05),
+    (5, 256): (83, 6.232914727937908e-06),
+    (5, 512): (56, 1.561257187085399e-06),
+    (5, 1024): (37, 3.906937003781669e-07),
+    (5, 2048): (22, 9.771738912753719e-08),
+    (5, 4096): (14, 2.442128360690484e-08),
+    (5, 8192): (25, 6.051482081333475e-09),
+    (5, 16384): (125, 1.294785106639975e-09),
+    (9, 8): (24, 0.006218383015440465),
+    (9, 16): (46, 0.001634732335841211),
+    (9, 32): (92, 0.0004213283876018328),
+    (9, 64): (184, 0.0001073853922349719),
+    (9, 128): (364, 2.719754531442473e-05),
+    (9, 256): (697, 6.86348259431068e-06),
+    (9, 512): (1287, 1.728338646033856e-06),
+    (9, 1024): (2275, 4.346411281817517e-07),
+    (9, 2048): (3804, 1.09205444220623e-07),
+    (9, 4096): (5921, 2.742229660945204e-08),
+    (9, 8192): (8324, 6.887544824508889e-09),
+    (9, 16384): (9939, 1.746307458129411e-09),
+    (10, 8): (16, 0.005459589664472029),
+    (10, 16): (17, 0.00142187342513521),
+    (10, 32): (18, 0.0003636870035355056),
+    (10, 64): (19, 9.205560541442e-05),
+    (10, 128): (20, 2.317202761038898e-05),
+    (10, 256): (20, 5.816297776276218e-06),
+    (10, 512): (21, 1.457830951306208e-06),
+    (10, 1024): (21, 3.651328566532672e-07),
+    (10, 2048): (21, 9.141698863801121e-08),
+    (10, 4096): (20, 2.288271601247509e-08),
+    (10, 8192): (20, 5.727347059578428e-09),
+    (10, 16384): (22, 1.434665942542223e-09),
+    (11, 8): (22, 0.008356560823144354),
+    (11, 16): (29, 0.002341340860242754),
+    (11, 32): (35, 0.0006075975162136428),
+    (11, 64): (39, 0.0001541913422818277),
+    (11, 128): (40, 3.881907958461887e-05),
+    (11, 256): (38, 9.739157979979299e-06),
+    (11, 512): (35, 2.439219905264206e-06),
+    (11, 1024): (32, 6.103735962186502e-07),
+    (11, 2048): (29, 1.52665845392481e-07),
+    (11, 4096): (25, 3.817564887580396e-08),
+    (11, 8192): (22, 9.545014548815748e-09),
+    (11, 16384): (20, 2.386596584796641e-09),
+}
+
+# dictionary (W-cycle; skip consecutive pre-smoothing for highest resolution): (problem, resolution) --> (iterations, rmse)
+reference_wskip = {
+    (1, 8): (15, 0.0002316246920928992),
+    (1, 16): (15, 6.133035183738675e-05),
+    (1, 32): (14, 1.579760144391777e-05),
+    (1, 64): (13, 4.010172727495267e-06),
+    (1, 128): (13, 1.01031542404558e-06),
+    (1, 256): (13, 2.53561694132353e-07),
+    (1, 512): (13, 6.351400125059963e-08),
+    (1, 1024): (13, 1.589398831859056e-08),
+    (1, 2048): (13, 3.975454881102004e-09),
+    (1, 4096): (13, 9.941205690072217e-10),
+    (1, 8192): (13, 2.485753762558888e-10),
+    (1, 16384): (13, 6.21592343814653e-11),
+    (2, 8): (15, 0.005755887431939238),
+    (2, 16): (15, 0.001514806795324035),
+    (2, 32): (15, 0.0003896134202940626),
+    (2, 64): (15, 9.886612169239417e-05),
+    (2, 128): (15, 2.490588075977417e-05),
+    (2, 256): (15, 6.250556488934192e-06),
+    (2, 512): (15, 1.565676350712706e-06),
+    (2, 1024): (15, 3.918003984003891e-07),
+    (2, 2048): (15, 9.799774343954763e-08),
+    (2, 4096): (15, 2.450544089337618e-08),
+    (2, 8192): (15, 6.127082796149458e-09),
+    (2, 16384): (15, 1.531792912570984e-09),
+    (3, 8): (24, 0.00519322805865961),
+    (3, 16): (29, 0.001348083634706579),
+    (3, 32): (33, 0.0003446304408803342),
+    (3, 64): (39, 8.725944838139262e-05),
+    (3, 128): (45, 2.197736632344448e-05),
+    (3, 256): (52, 5.519946064666477e-06),
+    (3, 512): (60, 1.384419687900096e-06),
+    (3, 1024): (68, 3.469509245194059e-07),
+    (3, 2048): (78, 8.691248671560935e-08),
+    (3, 4096): (88, 2.176620598055583e-08),
+    (3, 8192): (98, 5.450104340917139e-09),
+    (3, 16384): (109, 1.36464279531954e-09),
+    (4, 8): (44, 0.005049861248609077),
+    (4, 16): (89, 0.001312846780833586),
+    (4, 32): (185, 0.0003373750023151869),
+    (4, 64): (381, 8.596967780840068e-05),
+    (4, 128): (770, 2.179081821241295e-05),
+    (4, 256): (1522, 5.505458458762354e-06),
+    (4, 512): (2936, 1.388134057161302e-06),
+    (4, 1024): (5513, 3.495320670221126e-07),
+    (4, 2048): (10060, 8.793067997300925e-08),
+    (4, 4096): (17783, 2.210993047074503e-08),
+    (4, 8192): (30335, 5.569482079095282e-09),
+    (4, 16384): (49607, 1.446973987076602e-09),
+    (5, 8): (92, 0.005739437566369739),
+    (5, 16): (208, 0.001510517811999955),
+    (5, 32): (308, 0.0003885129024463456),
+    (5, 64): (309, 9.858702741604349e-05),
+    (5, 128): (264, 2.483558318041548e-05),
+    (5, 256): (224, 6.232914726801392e-06),
+    (5, 512): (214, 1.561257181769362e-06),
+    (5, 1024): (210, 3.906936796864997e-07),
+    (5, 2048): (208, 9.771739613373222e-08),
+    (5, 4096): (208, 2.442133962894638e-08),
+    (5, 8192): (207, 6.051446289676874e-09),
+    (5, 16384): (208, 1.295088587166457e-09),
+    (9, 8): (42, 0.006218383015380425),
+    (9, 16): (87, 0.001634732335806115),
+    (9, 32): (182, 0.0004213283875964894),
+    (9, 64): (376, 0.0001073853922615971),
+    (9, 128): (760, 2.719754539542973e-05),
+    (9, 256): (1503, 6.863482758165223e-06),
+    (9, 512): (2898, 1.728338943214875e-06),
+    (9, 1024): (5435, 4.346416945034564e-07),
+    (9, 2048): (9897, 1.092065546003798e-07),
+    (9, 4096): (17450, 2.742448104726837e-08),
+    (9, 8192): (29677, 6.892274765615689e-09),
+    (9, 16384): (62891, 1.729584556389719e-09),
+    (10, 8): (24, 0.005459589664450656),
+    (10, 16): (29, 0.001421873425124045),
+    (10, 32): (33, 0.0003636870035078033),
+    (10, 64): (39, 9.205560539707939e-05),
+    (10, 128): (45, 2.31720275943804e-05),
+    (10, 256): (52, 5.816297759690328e-06),
+    (10, 512): (59, 1.457830944384984e-06),
+    (10, 1024): (68, 3.651328384444959e-07),
+    (10, 2048): (77, 9.141693982347029e-08),
+    (10, 4096): (87, 2.28828262134873e-08),
+    (10, 8192): (97, 5.727233629827745e-09),
+    (10, 16384): (111, 1.434582843888376e-09),
+    (11, 8): (36, 0.00835656082312912),
+    (11, 16): (52, 0.002341340860241902),
+    (11, 32): (67, 0.0006075975162201032),
+    (11, 64): (76, 0.0001541913422894889),
+    (11, 128): (79, 3.881907959048919e-05),
+    (11, 256): (78, 9.739157982213286e-06),
+    (11, 512): (74, 2.43921990627702e-06),
+    (11, 1024): (69, 6.103735873895346e-07),
+    (11, 2048): (63, 1.526658512895812e-07),
+    (11, 4096): (58, 3.817564326927109e-08),
+    (11, 8192): (58, 9.545038820008145e-09),
+    (11, 16384): (59, 2.386478605444075e-09),
+}
+
+def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True, bench_jvp=True, bench_vjp=True, reps=10, reps_details=1, reps_util=1, reps_transfer=10, isolate=0, skip=0, cutoff=0, start=0, problem_type=None, export=False, save_result=False, file_prefix=None, file_suffix=None, scalar_lambda=True, fcycle=False, wcycle=False, timestamp=False, jit_details=False, details_only=False, cpu_utilization=False, gpu_utilization=False, fixed=False, remat=False, force_iterations=0, smi=False, export_internals=False, lowering_debug=False, bench_transfer=False, transfer_only=False, max_mem=False, flops_new=False, skip_pre=False):
     def initialize_psutil():
         """Initializes the psutil library if available.
 
@@ -218,22 +720,27 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
         result["mem_usage"] = mem_usage
         result["mem"] = mem
 
-    reference_usable = x_res == y_res and x_res >= 8 and x_res <= 16384
-    str_fcycle = " (F-cycle)" if fcycle else ""
+    if skip_pre:
+        reference = reference_fskip if fcycle else reference_wskip if wcycle else reference_vskip
+    else:
+        reference = reference_f if fcycle else reference_w if wcycle else reference_v
+    reference_usable = x_res == y_res and x_res >= 8 and x_res <= 16384 and reference is not None
+    str_cycle = " (F-cycle)" if fcycle else " (W-cycle)" if wcycle else " (V-cycle)"
+    str_skip = "; skip_pre" if skip_pre else ""
 
     # for export
     file_prefix = "" if file_prefix is None else file_prefix + "_"
     file_suffix = "" if file_suffix is None else "_" + file_suffix
 
     if reference_usable and fixed:
-        print(f"mode: FIXED{str_fcycle}")
+        print(f"mode: FIXED{str_cycle}{str_skip}")
     elif force_iterations > 0:
         fixed = True
-        print(f"mode: FIXED{str_fcycle}; enforcing {force_iterations} iterations")
+        print(f"mode: FIXED{str_cycle}{str_skip}; enforcing {force_iterations} iterations")
     elif not reference_usable and fixed:
         raise ValueError("No reference value available. Cannot use mode FIXED.")
     else:
-        print(f"mode: DYNAMIC{str_fcycle}")
+        print(f"mode: DYNAMIC{str_cycle}{str_skip}")
 
     begin = time.time()
 
@@ -547,28 +1054,40 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
             However, since 'ref_iters' is a test-specific constant (corresponds to static arg w.r.t. jit on a global function) there is no way around it.
             Also for functions below!
             """
-            if fixed and fcycle:
-                return solve_2d_fixed_fcycle_simple(grid_x, grid_y, ref_iters, *primals)
-            elif not fixed and fcycle:
-                return solve_2d_fcycle_simple(grid_x, grid_y, *primals)
-            elif fixed and not fcycle:
-                return solve_2d_fixed_simple(grid_x, grid_y, ref_iters, *primals)
+            if skip_pre:
+                if fcycle:
+                    return solve_2d_fixed_fcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_skip_pre_simple(grid_x, grid_y, *primals)
+                elif wcycle:
+                    return solve_2d_fixed_wcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_skip_pre_simple(grid_x, grid_y, *primals)
+                else:
+                    return solve_2d_fixed_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_skip_pre_simple(grid_x, grid_y, *primals)
             else:
-                return solve_2d_simple(grid_x, grid_y, *primals)
+                if fcycle:
+                    return solve_2d_fixed_fcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_simple(grid_x, grid_y, *primals)
+                elif wcycle:
+                    return solve_2d_fixed_wcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_simple(grid_x, grid_y, *primals)
+                else:
+                    return solve_2d_fixed_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_simple(grid_x, grid_y, *primals)
 
         @jax.jit
         def jvp(primals, tangents):
             """
             Needed since 'jax.jit' needs to be outermost call in order to use '.trace()'.
             """
-            if fixed and fcycle:
-                f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters)
-            elif not fixed and fcycle:
-                f = partial(solve_2d_fcycle_simple, grid_x, grid_y)
-            elif fixed and not fcycle:
-                f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters)
+            if skip_pre:
+                if fcycle:
+                    f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_skip_pre_simple, grid_x, grid_y)
+                elif wcycle:
+                    f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_skip_pre_simple, grid_x, grid_y)
+                else:
+                    f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_skip_pre_simple, grid_x, grid_y)
             else:
-                f = partial(solve_2d_simple, grid_x, grid_y)
+                if fcycle:
+                    f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_simple, grid_x, grid_y)
+                elif wcycle:
+                    f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_simple, grid_x, grid_y)
+                else:
+                    f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_simple, grid_x, grid_y)
 
             return jax.jvp(f, primals, tangents, True)
 
@@ -578,10 +1097,20 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
             Needed since 'jax.jit' needs to be outermost call in order to use '.trace()'.
             Also gives significant speedup.
             """
-            if fcycle:
-                f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters)
+            if skip_pre:
+                if fcycle:
+                    f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
+                elif wcycle:
+                    f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
+                else:
+                    f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters)
             else:
-                f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters)
+                if fcycle:
+                    f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters)
+                elif wcycle:
+                    f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters)
+                else:
+                    f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters)
 
             g = jax.checkpoint(f)
 
@@ -694,7 +1223,7 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
             print("tracing: took {} s".format(np.median(trace_times)))
             print("lowering: took {} s".format(np.median(lower_times)))
             print("compilation: took {} s".format(np.median(compile_times)))
-            flops = int(compiled.cost_analysis()[0]['flops'])
+            flops = int(compiled.cost_analysis()['flops']) if flops_new else int(compiled.cost_analysis()[0]['flops'])
             print(f"cost['flops']: {flops}")
             memory = compiled.memory_analysis()
             print("code size: {}\narg size: {}\noutput size: {}\ntmp size: {}\nsum size: {}".format(memory.generated_code_size_in_bytes, memory.argument_size_in_bytes, memory.output_size_in_bytes, memory.temp_size_in_bytes, memory.generated_code_size_in_bytes + memory.argument_size_in_bytes + memory.output_size_in_bytes + memory.temp_size_in_bytes))
@@ -711,7 +1240,7 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
                     elif dvjp:
                         file_jaxpr.write(str(jax.make_jaxpr(vjp)(primals, cotangent)))
                 with open(filename_lower, "w") as file_lower:
-                    file_lower.write(lowered.as_text())
+                    file_lower.write(lowered.as_text(debug_info = lowering_debug))
                 with open(filename_compile, "w") as file_compile:
                     file_compile.write(compiled.as_text())
             #print(f"num runs: {len(trace_times)}, {trace_times}, {lower_times}, {compile_times}")
@@ -1030,17 +1559,19 @@ def main():
     parser.add_argument('--vjp', default=True, action=argparse.BooleanOptionalAction,
                         help='Benchmark VJP calls. Default is True.')
     parser.add_argument('--check', default=True, action=argparse.BooleanOptionalAction,
-                        help='Check result of solver call (only supported for resolution == 128). Default is True.')
-    parser.add_argument('--print', default=False, action=argparse.BooleanOptionalAction,
-                        help='Print result of solver call (RMSE and iteration count). Default is False.')
+                        help='Check result of solver call. Default is True.')
+    parser.add_argument('--print', default=True, action=argparse.BooleanOptionalAction,
+                        help='Print result of solver call (RMSE and iteration count). Default is True.')
     parser.add_argument('-e', '--export', default=False, action=argparse.BooleanOptionalAction,
-                        help='Export measurements as CSV. Default is False.')
+                        help='Export measurements as CSV (warmup + runs). Default is False.')
     parser.add_argument('--save', default=False, action=argparse.BooleanOptionalAction,
                         help='Save problem and computed result. Default is False.')
     parser.add_argument('--scalar', default=True, action=argparse.BooleanOptionalAction,
-                        help='Use scalar lambda for problems 1, 2, and 3. Leads to additional recompilation. Default is True.')
+                        help='Use scalar lambda for problems 1, 2, and 3. Default is True.')
     parser.add_argument('--fcycle', default=False, action=argparse.BooleanOptionalAction,
                         help='Use F-cycle instead of V-cycle. Default is False.')
+    parser.add_argument('--wcycle', default=False, action=argparse.BooleanOptionalAction,
+                        help='Use W-cycle instead of V-cycle. Default is False.')
     parser.add_argument('-d', '--details', default=False, action=argparse.BooleanOptionalAction,
                         help='Enable JIT details. Default is False.')
     parser.add_argument('--details-only', default=False, action=argparse.BooleanOptionalAction,
@@ -1057,12 +1588,16 @@ def main():
                         help='Initialize tracking for jax-smi. Default is False.')
     parser.add_argument('--internals', default=False, action=argparse.BooleanOptionalAction,
                         help='Export internals (i.e. intermediate representations during JIT process) when details are investigated. Default is False.')
+    parser.add_argument('--lowerd', default=False, action=argparse.BooleanOptionalAction,
+                        help='Add debug information when exporting lowering IR. Default is False.')
     parser.add_argument('--transfer', default=False, action=argparse.BooleanOptionalAction,
                         help='Benchmark transfer times. Default is False.')
     parser.add_argument('--transfer-only', default=False, action=argparse.BooleanOptionalAction,
                         help='Only benchmark transfer times. Default is False.')
     parser.add_argument('--max', default=False, action=argparse.BooleanOptionalAction,
                         help='Use maximum instead of mean to aggregate memory consumption samples. Default is False.')
+    parser.add_argument('--new', default=False, action=argparse.BooleanOptionalAction,
+                        help='Adapt datastructures for latest jax version (e.g. cost[\'flops\']). Default is False.')
     parser.add_argument('--dreps', type=int, default=1,
                         help='Repetitions (runs) of JIT details (integer). Default is 1.')
     parser.add_argument('--ureps', type=int, default=1,
@@ -1073,6 +1608,8 @@ def main():
                         help='Force solver to do exactly this number of multigrid iterations (do not set --fixed too). Default is 0 (dynamic).')
     parser.add_argument('--timestamp', default=False, action=argparse.BooleanOptionalAction,
                         help='Print timestamp. Default is False.')
+    parser.add_argument('--skip-pre', default=False, action=argparse.BooleanOptionalAction,
+                        help='Skip pre-smoothing for repeated cycles for highest resolution (such that no consecutive smoothing calls happen). Default is False.')
     parser.add_argument('-s', '--suffix', type=str, default=None,
                         help='Suffix for CSV file names. Default is None.')
     parser.add_argument('-p', '--prefix', type=str, default=None,
@@ -1093,7 +1630,7 @@ def main():
     x_res = args.x_resolution if args.x_resolution is not None else args.resolution
     y_res = args.y_resolution if args.y_resolution is not None else args.resolution
 
-    if x_res <= 0 or y_res <= 0 or args.reps < 0 or args.isolate < 0 or args.cutoff < 0:
+    if x_res <= 0 or y_res <= 0 or args.reps < 0 or args.dreps < 1 or args.ureps < 1 or args.treps < 1 or args.iters < 0 or args.isolate < 0 or args.cutoff < 0 or args.skip < 0 or args.start < 0:
         parser.error("All integer arguments must be sensible (e.g. non-negative)!")
 
     print(f"Resolution is set to: x={x_res}, y={y_res}")
@@ -1101,7 +1638,7 @@ def main():
     details = args.details or args.details_only
     transfer = args.transfer or args.transfer_only
 
-    bench(x_res, y_res, print_result=args.print, check_result=args.check, bench_solve=args.solve, bench_jvp=args.jvp, bench_vjp=args.vjp, reps=args.reps, isolate=args.isolate, skip=args.skip, cutoff=args.cutoff, start=args.start, export=args.export, save_result=args.save, file_prefix=args.prefix, file_suffix=args.suffix, problem_type=args.type, scalar_lambda=args.scalar, fcycle=args.fcycle, timestamp=args.timestamp, jit_details=details, reps_details=args.dreps, details_only=args.details_only, cpu_utilization=args.util, gpu_utilization=args.gutil, reps_util=args.ureps, fixed=args.fixed, remat=args.remat, force_iterations=args.iters, smi=args.smi, export_internals=args.internals, bench_transfer=transfer, transfer_only=args.transfer_only, reps_transfer=args.treps, max_mem=args.max)
+    bench(x_res, y_res, print_result=args.print, check_result=args.check, bench_solve=args.solve, bench_jvp=args.jvp, bench_vjp=args.vjp, reps=args.reps, isolate=args.isolate, skip=args.skip, cutoff=args.cutoff, start=args.start, export=args.export, save_result=args.save, file_prefix=args.prefix, file_suffix=args.suffix, problem_type=args.type, scalar_lambda=args.scalar, fcycle=args.fcycle, wcycle=args.wcycle, timestamp=args.timestamp, jit_details=details, reps_details=args.dreps, details_only=args.details_only, cpu_utilization=args.util, gpu_utilization=args.gutil, reps_util=args.ureps, fixed=args.fixed, remat=args.remat, force_iterations=args.iters, smi=args.smi, export_internals=args.internals, bench_transfer=transfer, transfer_only=args.transfer_only, reps_transfer=args.treps, max_mem=args.max, lowering_debug=args.lowerd, flops_new=args.new, skip_pre=args.skip_pre)
 
 if __name__ == "__main__":
     main()

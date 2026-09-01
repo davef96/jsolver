@@ -1,20 +1,22 @@
 import numpy as np
 from jsolver.grid_1d import grid_1D
 from jsolver.solver_3d import solve_3d_simple
-import sys
+import time
 
-# cache all jit-compiled functions in local directory (note: does not work if compiled function contains host callbacks); this reduces (but does not avoid!) recompilation time across multiple runs of this script
+# cache all jit-compiled functions in local directory to avoid recompilation across multiple runs of this script
+# see https://docs.jax.dev/en/latest/persistent_compilation_cache.html
 import jax
 jax.config.update("jax_compilation_cache_dir", "/tmp/jax_cache")
 jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+jax.config.update("jax_persistent_cache_enable_xla_caches", "xla_gpu_per_fusion_autotune_cache_dir")
 
 # create linear grid objects with desired resolution
 num_points = 64
 
 x_res = num_points # first dimension
 y_res = num_points # second dimension
-z_res = num_points # second dimension
+z_res = num_points # third dimension
 grid_x = grid_1D(x_res) # centered linear grid for interval [0,1]
 grid_y = grid_1D(y_res)
 grid_z = grid_1D(z_res)
@@ -34,10 +36,17 @@ sinz = np.sin(np.pi * grid_z.centers)[:, np.newaxis, np.newaxis]
 phi_ana = sinx * siny * sinz
 rhs = -(np.pi ** 2) * (D_xx + D_yy + D_zz) * phi_ana
 
-
-#sys.exit()
 # solve problem
+curr_time = time.time()
 phi_res, iterations = solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz)
+jax.block_until_ready(phi_res)
+print(f"Warm-up run took {time.time() - curr_time} s")
 err = (phi_ana - phi_res)[1:-1, 1:-1, 1:-1]
 rmse = np.linalg.norm(err) / np.sqrt(err.size)
 print(f"Type of 'phi_res': {type(phi_res)}, Iterations: {iterations}, RMSE: {rmse}")
+for i in range(3):
+    curr_time = time.time()
+    phi_res, iterations = solve_3d_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz)
+    jax.block_until_ready(phi_res)
+    print(f"Repeated run {i} took {time.time() - curr_time} s")
+
