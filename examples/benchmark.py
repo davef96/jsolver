@@ -800,10 +800,11 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
         y = grid_y.centers[:, np.newaxis]
         ox = 1. - x
         oy = 1. - y
-        prod = y * oy
-        phi_ana = x * ox ** 3 * prod
+        prod_x3 = x * ox ** 3
+        prod_y = y * oy
+        phi_ana = prod_x3 * prod_y
         lam = 0. if scalar_lambda else np.zeros(arr_shape)
-        rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
+        rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
 
         problems.append((1, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 

@@ -165,33 +165,33 @@ def grad_func_solve_mixed(setup_mixed):
     return gsolve
 
 
-def problem_1(x_cen, y_cen, z_cen, shape):
+def problem_1(x_cen, y_cen, z_cen):
     D_xx = 1.0
     D_yy = 1.0
     D_zz = 1.0
+    lam = 0.0
     sx = np.sin(np.pi * x_cen)[np.newaxis, np.newaxis, :]
     sy = np.sin(np.pi * y_cen)[np.newaxis, :, np.newaxis]
     sz = np.sin(np.pi * z_cen)[:, np.newaxis, np.newaxis]
     phi_ana = sx * sy * sz
-    lam = np.zeros(shape)
     rhs = -(np.pi ** 2) * (D_xx + D_yy + D_zz) * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy, D_zz
 
 @pytest.fixture
 def test1_setup(setup):
-    grid_x, grid_y, grid_z, phi, _, _ = setup
-    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test1_setup_32(setup_32):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_32
-    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_32
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test1_setup_mixed(setup_mixed):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_mixed
+    return problem_1(grid_x.centers, grid_y.centers, grid_z.centers)
 
 def test1(setup, test1_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -245,7 +245,7 @@ def test1_32(setup_mixed, test1_setup_mixed, grad_func_solve_mixed):
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
 
-def problem_2(x_cen, y_cen, z_cen, shape):
+def problem_2(x_cen, y_cen, z_cen):
     D_xx = 1.0
     D_yy = 1.0
     D_zz = 1.0
@@ -256,26 +256,25 @@ def problem_2(x_cen, y_cen, z_cen, shape):
     sy = np.sin(np.pi * y)
     sz = np.sin(np.pi * z)
     phi_ana = sx * sy * sz
-    lam = 0.2 * x * y ** 2 * z**3
-    print("\n shape of lambda",lam.shape)
+    lam = 0.2 * x * y ** 2 * z ** 3
     rhs = -((np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy, D_zz
 
 @pytest.fixture
 def test2_setup(setup):
-    grid_x, grid_y, grid_z, phi, _, _ = setup
-    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup
+    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test2_setup_32(setup_32):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_32
-    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_32
+    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test2_setup_mixed(setup_mixed):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_mixed
+    return problem_2(grid_x.centers, grid_y.centers, grid_z.centers)
 
 def test2(setup, test2_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -328,7 +327,7 @@ def test2_mixed(setup_mixed, test2_setup_mixed, grad_func_solve_mixed):
         check_grads(gsolve, (grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
-def problem_3(x_cen, y_cen, z_cen, shape):
+def problem_3(x_cen, y_cen, z_cen):
     D_xx = 1.0
     D_yy = 0.5
     D_zz = 2.0
@@ -339,26 +338,25 @@ def problem_3(x_cen, y_cen, z_cen, shape):
     sy = np.sin(np.pi * y)
     sz = np.sin(np.pi * z)
     phi_ana = sx * sy * sz
-    lam = 0.2 * x * y ** 2 * z**3
-    print("\n shape of lambda",lam.shape)
+    lam = 0.2 * x * y ** 2 * z ** 3
     rhs = -((np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy, D_zz
 
 @pytest.fixture
 def test3_setup(setup):
-    grid_x, grid_y, grid_z, phi, _, _ = setup
-    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test3_setup_32(setup_32):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_32
-    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_32
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers)
 
 @pytest.fixture
 def test3_setup_mixed(setup_mixed):
-    grid_x, grid_y, grid_z, phi, _, _ = setup_mixed
-    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers, phi.shape)
+    grid_x, grid_y, grid_z, _, _, _ = setup_mixed
+    return problem_3(grid_x.centers, grid_y.centers, grid_z.centers)
 
 def test3(setup, test3_setup, grad_func_solve):
     grid_x, grid_y, grid_z, phi, acceptable_error_abs, acceptable_error_rel = setup

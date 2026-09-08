@@ -27,9 +27,10 @@ x = grid_x.centers[np.newaxis]
 y = grid_y.centers[:, np.newaxis]
 ox = 1. - x
 oy = 1. - y
-prod = y * oy
-phi_ana = x * ox ** 3 * prod
-rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
+prod_x3 = x * ox ** 3
+prod_y = y * oy
+phi_ana = prod_x3 * prod_y
+rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
 
 # solve problem
 curr_time = time.time()

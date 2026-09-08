@@ -61,9 +61,10 @@ x = grid_x.centers[np.newaxis]    # row vector
 y = grid_y.centers[:, np.newaxis] # column vector
 ox = 1. - x
 oy = 1. - y
-prod = y * oy
-phi_ana = x * ox ** 3 * prod
-rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
+prod_x3 = x * ox ** 3
+prod_y = y * oy
+phi_ana = prod_x3 * prod_y
+rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
 
 # solve problem
 phi_res, iterations = solve_2d_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy)

@@ -128,34 +128,35 @@ def grad_func_solve_64_128(setup_64_128):
 
     return gsolve
 
-def problem_1(x_cen, y_cen, shape):
+def problem_1(x_cen, y_cen):
     D_xx = 1.0
     D_yy = 1.0
+    lam = 0.0
     x = x_cen[np.newaxis]
     y = y_cen[:, np.newaxis]
     ox = 1. - x
     oy = 1. - y
-    prod = y * oy
-    phi_ana = x * ox ** 3 * prod
-    lam = np.zeros(shape)
-    rhs = -2 * x * ox ** 3 - 6 * ox * (ox - x) * prod
+    prod_x3 = x * ox ** 3
+    prod_y = y * oy
+    phi_ana = prod_x3 * prod_y
+    rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
 
     return phi_ana, rhs, lam, D_xx, D_yy
 
 @pytest.fixture
 def test1_setup(setup):
-    grid_x, grid_y, phi, _, _ = setup
-    return problem_1(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup
+    return problem_1(grid_x.centers, grid_y.centers)
 
 @pytest.fixture
 def test1_setup_64(setup_64):
-    grid_x, grid_y, phi, _, _ = setup_64
-    return problem_1(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup_64
+    return problem_1(grid_x.centers, grid_y.centers)
 
 @pytest.fixture
 def test1_setup_64_128(setup_64_128):
-    grid_x, grid_y, phi, _, _ = setup_64_128
-    return problem_1(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup_64_128
+    return problem_1(grid_x.centers, grid_y.centers)
 
 def test1(setup, test1_setup, grad_func_solve):
     grid_x, grid_y, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -239,31 +240,31 @@ def test1_64_128(setup_64_128, test1_setup_64_128, grad_func_solve_64_128):
         check_grads(gsolve, (grid_x, grid_y, phi, rhs, lam, D_xx, D_yy), order=1, modes=["fwd"])
         print("check_grads(gsolve, ...) took {} s".format(time.time() - curr_time))
 
-def problem_2(x_cen, y_cen, shape):
+def problem_2(x_cen, y_cen):
     D_xx = 1.0
     D_yy = 1.0
+    lam = 0.0
     sy = np.sin(np.pi * y_cen)[:, np.newaxis]
     sx = np.sin(np.pi * x_cen)[np.newaxis]
     phi_ana = sx * sy
-    lam = np.zeros(shape)
     rhs = -(np.pi ** 2) * (D_xx + D_yy) * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy
 
 @pytest.fixture
 def test2_setup(setup):
-    grid_x, grid_y, phi, _, _ = setup
-    return problem_2(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup
+    return problem_2(grid_x.centers, grid_y.centers)
 
 @pytest.fixture
 def test2_setup_64(setup_64):
-    grid_x, grid_y, phi, _, _ = setup_64
-    return problem_2(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup_64
+    return problem_2(grid_x.centers, grid_y.centers)
 
 @pytest.fixture
 def test2_setup_64_128(setup_64_128):
-    grid_x, grid_y, phi, _, _ = setup_64_128
-    return problem_2(grid_x.centers, grid_y.centers, phi.shape)
+    grid_x, grid_y, _, _, _ = setup_64_128
+    return problem_2(grid_x.centers, grid_y.centers)
 
 def test2(setup, test2_setup, grad_func_solve):
     grid_x, grid_y, phi, acceptable_error_abs, acceptable_error_rel = setup
@@ -324,7 +325,7 @@ def problem_3(x_cen, y_cen, shape):
     D_xx = np.full(shape, x)
     D_yy = np.full(shape, x)
     phi_ana = sx * sy
-    lam = np.zeros(shape)
+    lam = 0.0
     rhs = np.pi * cx * sy - 2 * np.pi ** 2 * x * phi_ana
 
     return phi_ana, rhs, lam, D_xx, D_yy
