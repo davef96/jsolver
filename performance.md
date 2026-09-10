@@ -4,11 +4,11 @@ Since `jax` is primarily designed for execution on accelerators (GPUs and TPUs),
 
 ## CPU vs. GPU
 
-The following speedup was observed across problems (test cases) when using an `RTX 2070S` GPU compared to the [CPU-only setting described below](#cpu-only-systems) for a resolution of `128 x 128`, which seems to be the crossover point for `problem 1` (i.e., where the GPU-accelerated program starts to outperform the CPU-only version).
+The following speedups were observed across problems (test cases) when using an `RTX 2070S` GPU compared to the [CPU-only setting described below](#cpu-only-systems) for a resolution of `128 x 128`, which seems to be the crossover point for `problem 1` (i.e., where the GPU-accelerated program starts to outperform the CPU-only version).
 
 ![Speedup gpu_resolution128](data/speedup_gpu_res128.svg)
 
-The speedup will be much larger for higher resolutions. To illustrate this, the following plot shows how the speedup scales with resolution in the case of `solve` calls for `problem 1`.
+The speedups will be much larger for higher resolutions. To illustrate this, the following plot shows how the speedup scales with resolution in the case of `solve` calls for `problem 1`.
 
 ![Speedup_vs_resolution_problem1](data/p1_solve_speedup.svg)
 
