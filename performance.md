@@ -4,7 +4,7 @@ Since `jax` is primarily designed for execution on accelerators (GPUs and TPUs),
 
 ## CPU vs. GPU
 
-The following speedups were observed across problems (test cases) when using an `RTX 2070S` GPU compared to the [CPU-only setting described below](#cpu-only-systems) for a resolution of `128 x 128`, which seems to be the crossover point for `problem 1` (i.e., where the GPU-accelerated program starts to outperform the CPU-only version).
+The following speedups were observed across problems (test cases) when using an `RTX 2070S` GPU compared to the [CPU-only setting described below](#cpu-only-systems) for a resolution of `128 x 128`, which seems to be the crossover point for [`problem 1`](examples/example2D.py) (i.e., where the GPU-accelerated program starts to outperform the CPU-only version).
 
 ![Speedup gpu_resolution128](data/speedup_gpu_res128.svg)
 
@@ -29,19 +29,19 @@ The following plot shows the speedup of setting this flag to `false` when using 
 
 ![Speedup when xla_cpu_use_thunk_runtime is set to false resolution 128](data/speedup_xlaflag_res128.svg)
 
-In higher-resolutions settings this seems to become more uniform, with a speedup of about `4` for all measured problems. Other plots in this document refer to the setup where the flag is set to `false` as `cpu_xlaflag`.
+In higher-resolution settings this seems to become more uniform, with a speedup of about `4` for all measured problems. Other plots in this document refer to the setup where the flag is set to `false` as `cpu_xlaflag`.
 
 <a id="memory-allocation-gpu"></a>
 
 ## Memory Allocation (GPU)
 
-For higher resolutions you might encounter some form of *out of memory* (OOM) error, which may be avoidable by choosing a different memory allocation strategy. The page [gpu memory allocation](https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html) shows environment variables that can be used to control the memory allocation behavior. Setting `XLA_PYTHON_CLIENT_ALLOCATOR=platform` is very useful if executing a function slightly exceeds the available device memory; however, it does reduce performance a bit (e.g., by a few percent when solving `problem 1`).
+For higher resolutions you might encounter some form of *out of memory* (OOM) error, which may be avoidable by choosing a different memory allocation strategy. The page [gpu memory allocation](https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html) shows environment variables that can be used to control the memory allocation behavior. Setting `XLA_PYTHON_CLIENT_ALLOCATOR=platform` is very useful when executing a function slightly exceeds the available device memory; however, it does reduce performance a bit (e.g., by a few percent when solving `problem 1`).
 
 ## Memory Consumption
 
 A lot of memory is consumed with higher resolutions.
 
-Since peak memory consumption depends on the exact behavior of the underlying memory management, actual measurements might not yield a *tight* upper bound on the memory requirement. Reasonable lower bounds were obtained by using [AOT compilation](https://jax.readthedocs.io/en/latest/aot.html) and [memory analysis](https://jax.readthedocs.io/en/latest/jax.stages.html#jax.stages.Compiled.memory_analysis) to obtain estimated memory requirements. Note that they are still very platform dependent. The following plots illustrate these results for `problem 1`. It is important to note that the labels on the `x-axis` change for `vjp` since it requires significantly more memory than `jvp`.
+Since peak memory consumption depends on the exact behavior of the underlying memory management, actual measurements might not yield a *tight* upper bound on the memory requirements. Reasonable lower bounds were obtained by using [AOT compilation](https://jax.readthedocs.io/en/latest/aot.html) and [memory analysis](https://jax.readthedocs.io/en/latest/jax.stages.html#jax.stages.Compiled.memory_analysis) to obtain estimated memory requirements. Note that they are still very platform dependent. The following plots illustrate these results for `problem 1`. It is important to note that the labels on the `x-axis` change for `vjp` since it requires significantly more memory than `jvp`.
 
 In the CPU-only setting, the *maximum resident set size* is measured by using [`time -v`](https://man7.org/linux/man-pages/man1/time.1.html) when running [`benchmark.py`](examples/benchmark.py).
 
