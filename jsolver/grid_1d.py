@@ -1,6 +1,5 @@
 import jax
 import numpy as np
-from dataclasses import dataclass
 
 @jax.tree_util.register_static
 class grid_1D:
