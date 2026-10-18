@@ -92,15 +92,15 @@ def solve_3d_fixed_wcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, la
     return solve_3d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
 
 @partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
-def solve_3d(grid_x, grid_y, grid_z, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_zz):
+def solve_3d(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
     """
     Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
     Initializes `Solver_3D` object and calls `solve` method.
 
-    Arguments after grid objects are set to keyword-only (`*`) for full support of all optional arguments.
+    Arguments after diffusion tensor components are set to keyword-only (`*`) for full support of all optional arguments.
 
-    Note that `grid_x` `grid_y`, and `grid_y` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
+    Note that `grid_x`, `grid_y`, and `grid_z` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
 
     All arrays must be three-dimensional and of compatible shape: `lam`, `D_xx`, `D_yy`, `D_zz` can be scalars, but `D_xx`, `D_yy`, and `D_zz` must either all be scalar or all of the same shape as the other arrays; all non-scalars must be of the same shape.
 

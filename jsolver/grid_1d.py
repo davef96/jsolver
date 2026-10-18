@@ -10,7 +10,7 @@ class grid_1D:
 
     Developer notes:
 
-    Class must be immutable in order to be used as a static argument for `jax.jit(solve)`, which is required since array shapes and number of multigrid levels (which both are computed from the grid_1D members) must be computed statically, i.e., at trace-time by using `numpy` functions instead of their `jax.numpy` counterpart.
+    Class must be immutable in order to be used as a static argument for `jax.jit(solve)`, which is required since array shapes and number of multigrid levels (which both are computed from the grid_1D members) must be computed statically, i.e., at trace time by using `numpy` functions instead of their `jax.numpy` counterpart.
 
     In particular, array members (i.e., `centers`, `widths`, `edges`) must be static fields in order to remain unchanged by `jax` transformations.
 

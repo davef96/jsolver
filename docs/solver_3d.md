@@ -141,6 +141,12 @@ See `solve_3d`.
 def solve_3d(grid_x,
              grid_y,
              grid_z,
+             phi,
+             rhs,
+             lam,
+             D_xx,
+             D_yy,
+             D_zz,
              *,
              fixed=False,
              epsilon=1e-12,
@@ -149,22 +155,16 @@ def solve_3d(grid_x,
              nu1=1,
              nu2=1,
              max_iters_outer=np.iinfo(np.int32).max,
-             max_iters_inner=np.iinfo(np.int32).max,
-             phi,
-             rhs,
-             lam,
-             D_xx,
-             D_yy,
-             D_zz)
+             max_iters_inner=np.iinfo(np.int32).max)
 ```
 
 Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
 Initializes `Solver_3D` object and calls `solve` method.
 
-Arguments after grid objects are set to keyword-only (`*`) for full support of all optional arguments.
+Arguments after diffusion tensor components are set to keyword-only (`*`) for full support of all optional arguments.
 
-Note that `grid_x` `grid_y`, and `grid_y` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
+Note that `grid_x`, `grid_y`, and `grid_z` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
 
 All arrays must be three-dimensional and of compatible shape: `lam`, `D_xx`, `D_yy`, `D_zz` can be scalars, but `D_xx`, `D_yy`, and `D_zz` must either all be scalar or all of the same shape as the other arrays; all non-scalars must be of the same shape.
 

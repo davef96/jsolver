@@ -194,13 +194,13 @@ def solve_2d_fixed_wcycle_skip_pre(grid_x, grid_y, iters_outer, iters_inner, phi
     return solve_2d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_xy=D_xy, skip_pre=True, gamma=2)
 
 @partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'fixed', 'epsilon', 'gamma', 'fcycle', 'skip_pre', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
-def solve_2d(grid_x, grid_y, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, skip_pre=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max, phi, rhs, lam, D_xx, D_yy, D_xy=None):
+def solve_2d(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, *, D_xy=None, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, skip_pre=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
     """
     Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
     Initializes `Solver_2D` object and calls `solve` method.
 
-    Arguments after grid objects are set to keyword-only (`*`) for full support of all optional arguments.
+    Arguments after `D_xx` and `D_yy` are set to keyword-only (`*`) for full support of all optional arguments.
 
     Note that `grid_x` and `grid_y` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
 

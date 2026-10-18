@@ -408,7 +408,13 @@ See `solve_2d`.
                           'max_iters_outer', 'max_iters_inner'))
 def solve_2d(grid_x,
              grid_y,
+             phi,
+             rhs,
+             lam,
+             D_xx,
+             D_yy,
              *,
+             D_xy=None,
              fixed=False,
              epsilon=1e-12,
              gamma=1,
@@ -417,20 +423,14 @@ def solve_2d(grid_x,
              nu1=1,
              nu2=1,
              max_iters_outer=np.iinfo(np.int32).max,
-             max_iters_inner=np.iinfo(np.int32).max,
-             phi,
-             rhs,
-             lam,
-             D_xx,
-             D_yy,
-             D_xy=None)
+             max_iters_inner=np.iinfo(np.int32).max)
 ```
 
 Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
 Initializes `Solver_2D` object and calls `solve` method.
 
-Arguments after grid objects are set to keyword-only (`*`) for full support of all optional arguments.
+Arguments after `D_xx` and `D_yy` are set to keyword-only (`*`) for full support of all optional arguments.
 
 Note that `grid_x` and `grid_y` must be static arguments for `jax.jit` since array shapes and number of multigrid levels are computed from them.
 
