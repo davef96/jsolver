@@ -173,21 +173,21 @@ All arrays must be three-dimensional and of compatible shape: `lam`, `D_xx`, `D_
 - `grid_x` _grid_1D_ - Linear grid for x-dimension (third index).
 - `grid_y` _grid_1D_ - Linear grid for y-dimension (second index).
 - `grid_z` _grid_1D_ - Linear grid for z-dimension (first index).
+- `phi` _jax.Array_ - Initial value for the unknown `phi` (usually filled with zeros).
+- `rhs` _jax.Array_ - Right-hand side of the equation.
+- `lam` _float or jax.Array_ - `lambda` (either constant or spatially varying decay rate).
+- `D_xx` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_yy` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_zz` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
 - `fixed` _bool, optional_ - Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
 - `epsilon` _float, optional_ - Solver termination threshold. Defaults to `1e-12`.
 - `gamma` _int, optional_ - Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
 - `fcycle` _bool, optional_ - Use F-cycle in `multigrid_cycle`. Can be combined with `gamma` into an "F-gamma-cycle". Defaults to `False`.
-- `skip_pre` _bool, optional_ - Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Only makes sense if `nu1 > 0` and `nu2 > 0`. Defaults to `False`.
 - `nu1` _int, optional_ - Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
 - `nu2` _int, optional_ - Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
 - `max_iters_outer` _int, optional_ - The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
 - `max_iters_inner` _int, optional_ - The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
-- `phi` _jax.Array_ - Initial value for the unknown `phi` (usually filled with zeros).
-- `rhs` _jax.Array_ - Right-hand side of the equation.
-- `lam` _float or jax.Array_ - `lambda` (either constant or spatially varying decay rate).
-- `D_xx_fine` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_yy_fine` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_zz_fine` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+  
 
 **Returns**:
 
@@ -242,7 +242,6 @@ Initialize members for solver configuration and compute important compile-time c
 - `epsilon` _float, optional_ - Solver termination threshold. Defaults to `1e-12`.
 - `gamma` _int, optional_ - Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
 - `fcycle` _bool, optional_ - Use F-cycle in `multigrid_cycle`. Can be combined with `gamma`. Defaults to `False`.
-- `skip_pre` _bool, optional_ - Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Defaults to `False`.
 - `nu1` _int, optional_ - Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
 - `nu2` _int, optional_ - Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
 - `max_iters_outer` _int, optional_ - The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
@@ -352,9 +351,9 @@ Compute discretization arrays for every level of the multigrid structure and sto
 **Arguments**:
 
 - `lambda_fine` _float or jax.Array_ - Either constant or `lambda` for finest/highest resolution.
-- `D_xx_fine` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_yy_fine` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_zz_fine` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_xx` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_yy` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_zz` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
 
 <a id="solver_3d.Solver_3D.solve"></a>
 
@@ -373,9 +372,9 @@ Iterate (i.e., call `multigrid_cycle`) until `distance(phi_old, phi) <= self.eps
 - `phi` _jax.Array_ - Initial value for the unknown `phi` (usually filled with zeros).
 - `rhs` _jax.Array_ - Right-hand side of the equation.
 - `lam` _float or jax.Array_ - `lambda` (either constant or spatially varying decay rate).
-- `D_xx_fine` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_yy_fine` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-- `D_zz_fine` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_xx` _float or jax.Array_ - Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_yy` _float or jax.Array_ - Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+- `D_zz` _float or jax.Array_ - Either `zz` diffusion constant (scalar) or `zz` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
   
 
 **Returns**:

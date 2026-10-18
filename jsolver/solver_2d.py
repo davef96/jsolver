@@ -209,6 +209,12 @@ def solve_2d(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, *, D_xy=None, fixed=Fals
     Args:
         grid_x (grid_1D): Linear grid for x-dimension (column-dimension).
         grid_y (grid_1D): Linear grid for y-dimension (row-dimension).
+        phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
+        rhs (jax.Array): Right-hand side of the equation.
+        lam (float or jax.Array): `lambda` (either constant or spatially varying decay rate).
+        D_xx (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+        D_yy (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+        D_xy (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
         fixed (bool, optional): Perform exactly `max_iters_outer` solver iterations and `max_iters_inner` smoothing iterations for the coarsest grid level instead of relying on a dynamic termination threshold. The function is compatible with reverse-mode automatic differentiation only if set to `True`. Defaults to `False`.
         epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
         gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
@@ -218,12 +224,6 @@ def solve_2d(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, *, D_xy=None, fixed=Fals
         nu2 (int, optional): Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
         max_iters_outer (int, optional): The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
         max_iters_inner (int, optional): The maximum number of smoothing iterations for coarsest grid level. Defaults to `int32.max`.
-        phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
-        rhs (jax.Array): Right-hand side of the equation.
-        lam (float or jax.Array): `lambda` (either constant or spatially varying decay rate).
-        D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-        D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-        D_xy_fine (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
 
     Returns:
         phi (jax.Array): Computed solution for `phi`.
@@ -388,9 +388,9 @@ class Solver_2D:
 
         Args:
             lambda_fine (float or jax.Array): Either constant or `lambda` for finest/highest resolution.
-            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-            D_xy_fine (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
+            D_xx (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_yy (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_xy (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
         """
         sq_idel_x = self.idel_x ** 2
         sq_idel_y = self.idel_y ** 2
@@ -430,9 +430,9 @@ class Solver_2D:
             phi (jax.Array): Initial value for the unknown `phi` (usually filled with zeros).
             rhs (jax.Array): Right-hand side of the equation.
             lam (float or jax.Array): `lambda` (either constant or spatially varying decay rate).
-            D_xx_fine (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-            D_yy_fine (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
-            D_xy_fine (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
+            D_xx (float or jax.Array): Either `xx` diffusion constant (scalar) or `xx` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_yy (float or jax.Array): Either `yy` diffusion constant (scalar) or `yy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion is desired).
+            D_xy (jax.Array, optional): `xy` diffusion tensor component for finest/highest resolution (if spatially varying diffusion with off-diagonal component is desired). Defaults to `None`.
 
         Returns:
             phi (jax.Array): Computed solution for `phi`.
