@@ -455,16 +455,15 @@ class Solver_2D:
         self.compute_discretization(lam, D_xx, D_yy, D_xy)
 
         if self.skip_pre:
-            if not self.fixed:
-                distance = partial(self.distance, phi)
-            phi = self.multigrid_cycle(do_BCs(phi), rhs, self.fcycle)
+            # perform pre-smoothing here (i.e., only for the very first cycle)
+            phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, 0), phi)
 
         if self.fixed:
-            phi = jax.lax.fori_loop(1 if self.skip_pre else 0, self.max_iters_outer, lambda i, phi: self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre), phi)
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre), phi)
             count = self.max_iters_outer
         else:
             def cond(arg):
-                phi, count, dist = arg
+                _, count, dist = arg
                 return jnp.logical_and(dist > self.epsilon, count < self.max_iters_outer)
 
             def body(arg):
@@ -475,7 +474,7 @@ class Solver_2D:
                 #jax.debug.print("count: {}, dist = {}", count, dist)
                 return (phi, count + 1, dist)
 
-            phi, count, dist = jax.lax.while_loop(cond, body, (phi, 1, distance(phi)) if self.skip_pre else (phi, 0, jnp.inf))
+            phi, count, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
 
         return phi, count
 
@@ -570,7 +569,7 @@ class Solver_2D:
                 phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
             else:
                 def cond(arg):
-                    phi, count, dist = arg
+                    _, count, dist = arg
                     return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
 
                 def body(arg):
