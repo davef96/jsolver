@@ -598,7 +598,8 @@ class Solver_2D:
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
         """
-        if level == self.levels - 2:
+        if level == self.levels - 2: # for details: see commit b6bb93064491e522fa426976b25d9cfac965b7b0
+            # note: this simplification is incorrect when non-zero BCs are combined with nu2=0
             phi = jax.lax.fori_loop(0, self.nu1 + self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
             return phi
         if not skip_pre:
