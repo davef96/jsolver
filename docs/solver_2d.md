@@ -741,6 +741,32 @@ Compute L2 norm of residual array.
 
 - `float` - L2 norm
 
+<a id="solver_2d.Solver_2D.coarsest_level_solve"></a>
+
+#### coarsest\_level\_solve
+
+```python
+def coarsest_level_solve(phi, rhs)
+```
+
+UNUSED.
+
+Compute approximate solution for coarsest level (i.e., grid level `self.levels - 1`) via repeated RBGS smoothing.
+
+Behavior is controlled by member:
+
+- `self.fixed` _bool_: Perform fixed number (`self.max_iters_inner`) of smoothing iterations.
+
+**Arguments**:
+
+- `phi` _jax.Array_ - Current value for the unknown `phi`.
+- `rhs` _jax.Array_ - Current right-hand side of the equation.
+  
+
+**Returns**:
+
+- `phi` _jax.Array_ - Approximate solution for coarsest-level problem.
+
 <a id="solver_2d.Solver_2D.multigrid_cycle"></a>
 
 #### multigrid\_cycle
@@ -753,10 +779,9 @@ Recursively defined multigrid cycle.
 
 Behavior is controlled by members:
 
-- `self.fixed` _bool_ - Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
-- `self.nu1` _int_ - Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
-- `self.nu2` _int_ - Smoothing iterations after `prolongate`.
-- `self.gamma` _int_ - Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
+- `self.nu1` _int_: Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
+- `self.nu2` _int_: Smoothing iterations after `prolongate`.
+- `self.gamma` _int_: Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
 
 **Arguments**:
 
@@ -821,7 +846,7 @@ Interpolate the computed coarse-grid correction into a finer grid.
 #### red\_black\_gauss\_seidel
 
 ```python
-def red_black_gauss_seidel(phi, rhs, level)
+def red_black_gauss_seidel(phi, rhs, level=0)
 ```
 
 Red-Black Gauss-Seidel (RBGS) routine for smoothing (i.e., reducing high-frequency errors).
@@ -830,7 +855,7 @@ Red-Black Gauss-Seidel (RBGS) routine for smoothing (i.e., reducing high-frequen
 
 - `phi` _jax.Array_ - Current value for the unknown `phi`.
 - `rhs` _jax.Array_ - Current right-hand side of the equation.
-- `level` _int_ - Current multigrid level.
+- `level` _int, optional_ - Current multigrid level. Defaults to `0`.
   
 
 **Returns**:

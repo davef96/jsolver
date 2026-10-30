@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/davef96/jsolver/actions/workflows/tests.yml/badge.svg)](https://github.com/davef96/jsolver/actions/workflows/tests.yml)
 
-Iterative geometric multigrid solver for steady-state diffusion–absorption problem of the following form:
+Iterative geometric multigrid solver for steady-state diffusion–absorption problems of the following form:
 
 ```math
 \nabla\cdot\left(D\nabla\phi\right) - \lambda\phi = \mathrm{rhs}
@@ -81,7 +81,7 @@ The arrays will be implicitly promoted to [`jax.Array`](https://jax.readthedocs.
 
 Also note that importing the solver will call `jax.config.update('jax_enable_x64', True)`, which globally sets the default `dtype` width to `64 bit` for **all** `jax` operations, resulting in `int64` and `float64` computations. While the solver requires this setting to work properly, this might not be desired in the context of high-performance machine learning: refer to [`default_dtypes`](https://docs.jax.dev/en/latest/default_dtypes.html) to check whether `jax` now allows to apply this setting locally; if not, the `dtype` of the respective arrays has to be set manually to allow for mixed-precision programs.
 
-For further examples see [`examples`](examples/) (where [`benchmark.py`](examples/benchmark.py) also shows `jax.jvp` and `jax.vjp` calls), [`test_solver_2d.py`](tests/test_solver_2d.py), and [`test_solver_3d.py`](tests/test_solver_3d.py).
+For further examples, see [`examples`](examples/) (where [`benchmark.py`](examples/benchmark.py) also shows `jax.jvp` and `jax.vjp` calls), [`test_solver_2d.py`](tests/test_solver_2d.py), and [`test_solver_3d.py`](tests/test_solver_3d.py).
 
 <a id="api-docs"></a>
 
@@ -91,17 +91,9 @@ For further examples see [`examples`](examples/) (where [`benchmark.py`](example
 - [grid_1d](docs/grid_1d.md)
 - [solver_2d](docs/solver_2d.md), [solver_3d](docs/solver_3d.md)
 
-Generated using [`pydoc-markdown`](https://github.com/NiklasRosenstein/pydoc-markdown) in the [`jsolver`](jsolver) directory as follows:
-
-```sh
-pydoc-markdown -m <module_name> -I $(pwd) > ../docs/<module_name>.md
-```
-
-Note that `<module_name>` must **not** contain the `.py` ending.
-
 ## Tests
 
-The tests can be run manually by using `pytest tests`. It is possible to run only a specific test for a specific file: e.g. `pytest tests/test_solver_2d.py::test1`. A coverage report can be created by adding the option `--cov=.`.
+The tests can be run manually by using `pytest tests`. It is possible to run only a specific test for a specific file: e.g., `pytest tests/test_solver_2d.py::test1`. A coverage report can be created by adding the option `--cov=.`.
 
 Note that the acceptable bounds are set relatively tight (for some tests). On a different system (hardware or installed library versions) you may have to adapt `acceptable_error_abs` or `acceptable_error_rel` for the `setup` routines in [`test_solver_2d.py`](tests/test_solver_2d.py) and [`test_solver_3d.py`](tests/test_solver_3d.py).
 

@@ -35,6 +35,40 @@ def solve_3d_fixed(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, l
     """
     return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
+def solve_3d_skip_pre_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments.
+
+    Pre-Smoothing is skipped for repeated V-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, skip_pre=True)
+
+def solve_3d_fixed_skip_pre_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`).
+
+    The argument `iters` controls the number of multigrid cycles.
+
+    Pre-Smoothing is skipped for repeated V-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d_fixed_skip_pre(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+
+def solve_3d_fixed_skip_pre(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and fixed number of solver iterations.
+
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    Pre-Smoothing is skipped for repeated V-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, skip_pre=True)
+
 def solve_3d_fcycle_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
@@ -63,15 +97,49 @@ def solve_3d_fixed_fcycle(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi,
     """
     return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True)
 
-def solve_3d_wcycle_simple(grid_x, grid_y, phi, rhs, lam, D_xx, D_yy, D_zz):
+def solve_3d_fcycle_skip_pre_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and F-cycle multigrid.
+
+    Pre-Smoothing is skipped for repeated F-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, fcycle=True, skip_pre=True)
+
+def solve_3d_fixed_fcycle_skip_pre_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid (smoothing iterations for coarsest level are set to `1`).
+
+    The argument `iters` controls the number of multigrid cycles.
+
+    Pre-Smoothing is skipped for repeated F-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d_fixed_fcycle_skip_pre(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+
+def solve_3d_fixed_fcycle_skip_pre(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and F-cycle multigrid.
+
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    Pre-Smoothing is skipped for repeated F-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, skip_pre=True, fcycle=True)
+
+def solve_3d_wcycle_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments and W-cycle multigrid.
 
     See `solve_3d`.
     """
-    return solve_3d(grid_x=grid_x, grid_y=grid_y, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
 
-def solve_3d_fixed_wcycle_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+def solve_3d_fixed_wcycle_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations (smoothing iterations for coarsest level are set to `1`) and W-cycle multigrid.
 
@@ -79,9 +147,9 @@ def solve_3d_fixed_wcycle_simple(grid_x, grid_y, iters, phi, rhs, lam, D_xx, D_y
 
     See `solve_3d`.
     """
-    return solve_3d_fixed_wcycle(grid_x=grid_x, grid_y=grid_y, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+    return solve_3d_fixed_wcycle(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
-def solve_3d_fixed_wcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+def solve_3d_fixed_wcycle(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
     """
     Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and W-cycle multigrid.
 
@@ -89,10 +157,44 @@ def solve_3d_fixed_wcycle(grid_x, grid_y, iters_outer, iters_inner, phi, rhs, la
 
     See `solve_3d`.
     """
-    return solve_3d(grid_x=grid_x, grid_y=grid_y, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2)
 
-@partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
-def solve_3d(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
+def solve_3d_wcycle_skip_pre_simple(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments and W-cycle multigrid.
+
+    Pre-Smoothing is skipped for repeated W-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, gamma=2, skip_pre=True)
+
+def solve_3d_fixed_wcycle_skip_pre_simple(grid_x, grid_y, grid_z, iters, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and W-cycle multigrid (smoothing iterations for coarsest level are set to `1`).
+
+    The argument `iters` controls the number of multigrid cycles.
+
+    Pre-Smoothing is skipped for repeated W-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d_fixed_wcycle_skip_pre(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, iters_outer=iters, iters_inner=1, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
+
+def solve_3d_fixed_wcycle_skip_pre(grid_x, grid_y, grid_z, iters_outer, iters_inner, phi, rhs, lam, D_xx, D_yy, D_zz):
+    """
+    Simplified, functionally pure wrapper function with positional arguments, fixed number of solver iterations and W-cycle multigrid.
+
+    The argument `iters_outer` controls the number of multigrid cycles, `iters_inner` controls the number of smoothing iterations for the coarsest grid level.
+
+    Pre-Smoothing is skipped for repeated W-cycles such that no consecutive smoothing operations happen for the finest/highest resolution. Otherwise, post-smoothing from previous cycle would be immediately followed by pre-smoothing.
+
+    See `solve_3d`.
+    """
+    return solve_3d(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=True, max_iters_outer=iters_outer, max_iters_inner=iters_inner, phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz, skip_pre=True, gamma=2)
+
+@partial(jax.jit, static_argnames=('grid_x', 'grid_y', 'grid_z', 'fixed', 'epsilon', 'gamma', 'fcycle', 'skip_pre', 'nu1', 'nu2', 'max_iters_outer', 'max_iters_inner'))
+def solve_3d(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz, *, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, skip_pre=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
     """
     Wrapper function which is functionally pure and thus compatible with `jax` transformations.
 
@@ -118,6 +220,7 @@ def solve_3d(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz, *, fixed=F
         epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
         gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
         fcycle (bool, optional): Use F-cycle in `multigrid_cycle`. Can be combined with `gamma` into an "F-gamma-cycle". Defaults to `False`.
+        skip_pre (bool, optional): Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Only makes sense if `nu1 > 0` and `nu2 > 0`. Defaults to `False`.
         nu1 (int, optional): Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
         nu2 (int, optional): Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
         max_iters_outer (int, optional): The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
@@ -130,7 +233,7 @@ def solve_3d(grid_x, grid_y, grid_z, phi, rhs, lam, D_xx, D_yy, D_zz, *, fixed=F
     Raises:
         ValueError: If either grid is not linear, or the grid resolution is not a power of 2 or not efficient for multigrid configuration, or array shapes are incompatible.
     """
-    solver = Solver_3D(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=fixed, epsilon=epsilon, gamma=gamma, fcycle=fcycle, nu1=nu1, nu2=nu2, max_iters_outer=max_iters_outer, max_iters_inner=max_iters_inner)
+    solver = Solver_3D(grid_x=grid_x, grid_y=grid_y, grid_z=grid_z, fixed=fixed, epsilon=epsilon, gamma=gamma, fcycle=fcycle, skip_pre=skip_pre, nu1=nu1, nu2=nu2, max_iters_outer=max_iters_outer, max_iters_inner=max_iters_inner)
     return solver.solve(phi=phi, rhs=rhs, lam=lam, D_xx=D_xx, D_yy=D_yy, D_zz=D_zz)
 
 class Solver_3D:
@@ -142,7 +245,7 @@ class Solver_3D:
     However, all invariants are established after calling `compute_discretization` (i.e., no members are modified after this point); hence, `jax` transformations can be applied to subsequent methods by making `self` a static parameter.
     """
 
-    def __init__(self, grid_x, grid_y, grid_z, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
+    def __init__(self, grid_x, grid_y, grid_z, fixed=False, epsilon=1e-12, gamma=1, fcycle=False, skip_pre=False, nu1=1, nu2=1, max_iters_outer=np.iinfo(np.int32).max, max_iters_inner=np.iinfo(np.int32).max):
         """
         Initialize members for solver configuration and compute important compile-time constants.
 
@@ -154,6 +257,7 @@ class Solver_3D:
             epsilon (float, optional): Solver termination threshold. Defaults to `1e-12`.
             gamma (int, optional): Number of recursive calls between `defect` and `prolongate` in `multigrid_cycle`. Defaults to `1` (V-cycle).
             fcycle (bool, optional): Use F-cycle in `multigrid_cycle`. Can be combined with `gamma`. Defaults to `False`.
+            skip_pre (bool, optional): Skip pre-smoothing for repeated cycles for finest/highest resolution (such that no consecutive smoothing calls happen). Defaults to `False`.
             nu1 (int, optional): Number of pre-smoothing iterations (i.e., before `defect`, which relies on `nu1 > 0`). Defaults to `1`.
             nu2 (int, optional): Number of post-smoothing iterations (i.e., after `prolongate`). Defaults to `1`.
             max_iters_outer (int, optional): The maximum number of solver iterations (i.e., multigrid cycles). Defaults to `int32.max`.
@@ -168,6 +272,7 @@ class Solver_3D:
         self.epsilon = epsilon
         self.gamma = gamma
         self.fcycle = fcycle
+        self.skip_pre = skip_pre
         self.nu1 = nu1
         self.nu2 = nu2
         self.compute_shapes(grid_x.mx, grid_y.mx, grid_z.mx)
@@ -356,23 +461,27 @@ class Solver_3D:
 
         self.compute_discretization(lam, D_xx, D_yy, D_zz)
 
+        if self.skip_pre:
+            # perform pre-smoothing here (i.e., only for the very first cycle)
+            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs), phi)
+
         if self.fixed:
-            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_cycle(do_BCs(phi), rhs, self.fcycle), phi)
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda _, phi: self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre), phi)
             count = self.max_iters_outer
         else:
             def cond(arg):
-                phi, count, dist = arg
+                _, count, dist = arg
                 return jnp.logical_and(dist > self.epsilon, count < self.max_iters_outer)
 
             def body(arg):
                 phi, count, dist = arg
-                distance = partial(self.distance, phi)
-                phi = self.multigrid_cycle(do_BCs(phi), rhs, self.fcycle)
-                dist = distance(phi)
+                phi_old = jnp.copy(phi)
+                phi = self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre)
+                dist = self.distance(phi_old, phi)
                 #jax.debug.print("count: {}, dist = {}", count, dist)
                 return (phi, count + 1, dist)
 
-            phi, count, dist = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
+            phi, count, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
 
         return phi, count
 
@@ -440,13 +549,47 @@ class Solver_3D:
         """
         return jnp.linalg.norm(self.compute_residual(phi, rhs))
 
+    def coarsest_level_solve(self, phi, rhs): # pragma: no cover
+        """
+        UNUSED.
+
+        Compute approximate solution for coarsest level (i.e., grid level `self.levels - 1`) via repeated RBGS smoothing.
+
+        Behavior is controlled by member:
+            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations.
+
+        Args:
+            phi (jax.Array): Current value for the unknown `phi`.
+            rhs (jax.Array): Current right-hand side of the equation.
+
+        Returns:
+            phi (jax.Array): Approximate solution for coarsest-level problem.
+        """
+        if self.fixed:
+            phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, self.levels - 1), phi)
+        else:
+            def cond(arg):
+                _, count, dist = arg
+                return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
+
+            def body(arg):
+                phi, count, dist = arg
+                phi_old = jnp.copy(phi)
+                phi = self.red_black_gauss_seidel(phi, rhs, self.levels - 1)
+                dist = self.distance(phi_old, phi)
+                #jax.debug.print("coarsest level -- count: {}, dist = {}", count, dist)
+                return (phi, count + 1, dist)
+
+            phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
+
+        return phi
+
     # same in 2D and 3D
-    def multigrid_cycle(self, phi, rhs, fcycle=False, level=0):
+    def multigrid_cycle(self, phi, rhs, fcycle=False, level=0, skip_pre=False):
         """
         Recursively defined multigrid cycle.
 
         Behavior is controlled by members:
-            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
             self.nu1 (int): Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
             self.nu2 (int): Smoothing iterations after `prolongate`.
             self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
@@ -456,35 +599,23 @@ class Solver_3D:
             rhs (jax.Array): Current right-hand side of the equation.
             level (int, optional): Current multigrid level (`0`: finest/highest resolution, ..., `self.levels-1`: coarsest/lowest resolution). Defaults to `0`.
             fcycle (bool, optional): Use F-cycle (i.e., do two recursive calls where the first one uses the F-gamma-cycle recursively and the second one performs a regular gamma-cycle). Defaults to `False`.
+            skip_pre (bool, optional): Skip pre-smoothing for this level (not applied recursively). Defaults to `False`.
 
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
         """
-        if level == self.levels - 1:
-            if self.fixed:
-                phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
-            else:
-                def cond(arg):
-                    phi, count, dist = arg
-                    return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
-
-                def body(arg):
-                    phi, count, dist = arg
-                    distance = partial(self.distance, phi)
-                    phi = self.red_black_gauss_seidel(phi, rhs, level)
-                    dist = distance(phi)
-                    #jax.debug.print("coarsest level -- count: {}, dist = {}", count, dist)
-                    return (phi, count + 1, dist)
-
-                phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
-        else:
-            phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
-            rhs_c = self.defect(phi, rhs, level)
-            phi_c = jnp.full(self.arr_shape[level + 1], 0.)
-            if fcycle:
-                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
-            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
-            phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
+        if level == self.levels - 2: # for details: see commit b6bb93064491e522fa426976b25d9cfac965b7b0
+            # note: this simplification is incorrect when non-zero BCs are combined with nu2=0
+            phi = jax.lax.fori_loop(0, self.nu1 + self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+            return phi
+        if not skip_pre:
+            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+        rhs_c = self.defect(phi, rhs, level)
+        phi_c = jnp.full(self.arr_shape[level + 1], 0.)
+        if fcycle:
+            phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
+        phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
+        phi = jax.lax.fori_loop(0, self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
 
         return phi
 
@@ -545,14 +676,14 @@ class Solver_3D:
 
         return corr
 
-    def red_black_gauss_seidel(self, phi, rhs, level):
+    def red_black_gauss_seidel(self, phi, rhs, level=0):
         """
         Red-Black Gauss-Seidel (RBGS) routine for smoothing (i.e., reducing high-frequency errors).
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
             rhs (jax.Array): Current right-hand side of the equation.
-            level (int): Current multigrid level.
+            level (int, optional): Current multigrid level. Defaults to `0`.
 
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
