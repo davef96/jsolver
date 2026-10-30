@@ -456,10 +456,10 @@ class Solver_2D:
 
         if self.skip_pre:
             # perform pre-smoothing here (i.e., only for the very first cycle)
-            phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, 0), phi)
+            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs), phi)
 
         if self.fixed:
-            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda i, phi: self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre), phi)
+            phi = jax.lax.fori_loop(0, self.max_iters_outer, lambda _, phi: self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre), phi)
             count = self.max_iters_outer
         else:
             def cond(arg):
@@ -468,9 +468,9 @@ class Solver_2D:
 
             def body(arg):
                 phi, count, dist = arg
-                distance = partial(self.distance, phi)
+                phi_old = jnp.copy(phi)
                 phi = self.multigrid_cycle(do_BCs(phi), rhs, fcycle=self.fcycle, skip_pre=self.skip_pre)
-                dist = distance(phi)
+                dist = self.distance(phi_old, phi)
                 #jax.debug.print("count: {}, dist = {}", count, dist)
                 return (phi, count + 1, dist)
 
@@ -549,7 +549,7 @@ class Solver_2D:
         Recursively defined multigrid cycle.
 
         Behavior is controlled by members:
-            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations for coarsest grid level.
+            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations in `coarsest_level_solve`.
             self.nu1 (int): Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
             self.nu2 (int): Smoothing iterations after `prolongate`.
             self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
@@ -564,32 +564,47 @@ class Solver_2D:
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
         """
-        if level == self.levels - 1:
-            if self.fixed:
-                phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
-            else:
-                def cond(arg):
-                    _, count, dist = arg
-                    return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
-
-                def body(arg):
-                    phi, count, dist = arg
-                    distance = partial(self.distance, phi)
-                    phi = self.red_black_gauss_seidel(phi, rhs, level)
-                    dist = distance(phi)
-                    #jax.debug.print("coarsest level -- count: {}, dist = {}", count, dist)
-                    return (phi, count + 1, dist)
-
-                phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
+        if not skip_pre:
+            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+        rhs_c = self.defect(phi, rhs, level)
+        phi_c = jnp.full(self.arr_shape[level + 1], 0.)
+        if level == self.levels - 2:
+            phi_c = self.coarsest_level_solve(phi_c, rhs_c)
         else:
-            if not skip_pre:
-                phi = jax.lax.fori_loop(0, self.nu1, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
-            rhs_c = self.defect(phi, rhs, level)
-            phi_c = jnp.full(self.arr_shape[level + 1], 0.)
             if fcycle:
-                phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
-            phi_c = jax.lax.fori_loop(0, self.gamma, lambda i, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
-            phi = jax.lax.fori_loop(0, self.nu2, lambda i, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
+                phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
+            phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
+        phi = jax.lax.fori_loop(0, self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
+
+        return phi
+
+    def coarsest_level_solve(self, phi, rhs):
+        """
+        Compute approximate solution for coarsest level (i.e., grid level `self.levels - 1`) via repeated RBGS smoothing.
+
+        Args:
+            phi (jax.Array): Current value for the unknown `phi`.
+            rhs (jax.Array): Current right-hand side of the equation.
+
+        Returns:
+            phi (jax.Array): Approximate solution for coarsest-level problem.
+        """
+        if self.fixed:
+            phi = jax.lax.fori_loop(0, self.max_iters_inner, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, self.levels - 1), phi)
+        else:
+            def cond(arg):
+                _, count, dist = arg
+                return jnp.logical_and(dist > self.epsilon, count < self.max_iters_inner)
+
+            def body(arg):
+                phi, count, dist = arg
+                phi_old = jnp.copy(phi)
+                phi = self.red_black_gauss_seidel(phi, rhs, self.levels - 1)
+                dist = self.distance(phi_old, phi)
+                #jax.debug.print("coarsest level -- count: {}, dist = {}", count, dist)
+                return (phi, count + 1, dist)
+
+            phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
 
         return phi
 
@@ -647,14 +662,14 @@ class Solver_2D:
 
         return corr
 
-    def red_black_gauss_seidel(self, phi, rhs, level):
+    def red_black_gauss_seidel(self, phi, rhs, level=0):
         """
         Red-Black Gauss-Seidel (RBGS) routine for smoothing (i.e., reducing high-frequency errors).
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
             rhs (jax.Array): Current right-hand side of the equation.
-            level (int): Current multigrid level.
+            level (int, optional): Current multigrid level. Defaults to `0`.
 
         Returns:
             phi (jax.Array): New value for the unknown `phi`.
