@@ -544,43 +544,14 @@ class Solver_2D:
         """
         return jnp.linalg.norm(self.compute_residual(phi, rhs))
 
-    def multigrid_cycle(self, phi, rhs, fcycle=False, level=0, skip_pre=False):
+    def coarsest_level_solve(self, phi, rhs): # pragma: no cover
         """
-        Recursively defined multigrid cycle.
+        UNUSED.
 
-        Behavior is controlled by members:
-            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations in `coarsest_level_solve`.
-            self.nu1 (int): Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
-            self.nu2 (int): Smoothing iterations after `prolongate`.
-            self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
-
-        Args:
-            phi (jax.Array): Current value for the unknown `phi`.
-            rhs (jax.Array): Current right-hand side of the equation.
-            level (int, optional): Current multigrid level (`0`: finest/highest resolution, ..., `self.levels-1`: coarsest/lowest resolution). Defaults to `0`.
-            fcycle (bool, optional): Use F-cycle (i.e., do two recursive calls where the first one uses the F-gamma-cycle recursively and the second one performs a regular gamma-cycle). Defaults to `False`.
-            skip_pre (bool, optional): Skip pre-smoothing for this level (not applied recursively). Defaults to `False`.
-
-        Returns:
-            phi (jax.Array): New value for the unknown `phi`.
-        """
-        if not skip_pre:
-            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
-        rhs_c = self.defect(phi, rhs, level)
-        phi_c = jnp.full(self.arr_shape[level + 1], 0.)
-        if level == self.levels - 2:
-            phi_c = self.coarsest_level_solve(phi_c, rhs_c)
-        else:
-            if fcycle:
-                phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
-            phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
-        phi = jax.lax.fori_loop(0, self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
-
-        return phi
-
-    def coarsest_level_solve(self, phi, rhs):
-        """
         Compute approximate solution for coarsest level (i.e., grid level `self.levels - 1`) via repeated RBGS smoothing.
+
+        Behavior is controlled by member:
+            self.fixed (bool): Perform fixed number (`self.max_iters_inner`) of smoothing iterations.
 
         Args:
             phi (jax.Array): Current value for the unknown `phi`.
@@ -605,6 +576,39 @@ class Solver_2D:
                 return (phi, count + 1, dist)
 
             phi, _, _ = jax.lax.while_loop(cond, body, (phi, 0, jnp.inf))
+
+        return phi
+
+    def multigrid_cycle(self, phi, rhs, fcycle=False, level=0, skip_pre=False):
+        """
+        Recursively defined multigrid cycle.
+
+        Behavior is controlled by members:
+            self.nu1 (int): Smoothing iterations before `defect` / restriction operation (which relies on `self.nu1 > 0`).
+            self.nu2 (int): Smoothing iterations after `prolongate`.
+            self.gamma (int): Number of recursive calls between `defect` and `prolongate` (1: V-cycle, 2: W-cycle, ...).
+
+        Args:
+            phi (jax.Array): Current value for the unknown `phi`.
+            rhs (jax.Array): Current right-hand side of the equation.
+            level (int, optional): Current multigrid level (`0`: finest/highest resolution, ..., `self.levels-1`: coarsest/lowest resolution). Defaults to `0`.
+            fcycle (bool, optional): Use F-cycle (i.e., do two recursive calls where the first one uses the F-gamma-cycle recursively and the second one performs a regular gamma-cycle). Defaults to `False`.
+            skip_pre (bool, optional): Skip pre-smoothing for this level (not applied recursively). Defaults to `False`.
+
+        Returns:
+            phi (jax.Array): New value for the unknown `phi`.
+        """
+        if level == self.levels - 2:
+            phi = jax.lax.fori_loop(0, self.nu1 + self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+            return phi
+        if not skip_pre:
+            phi = jax.lax.fori_loop(0, self.nu1, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi)
+        rhs_c = self.defect(phi, rhs, level)
+        phi_c = jnp.full(self.arr_shape[level + 1], 0.)
+        if fcycle:
+            phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, True, level + 1), phi_c)
+        phi_c = jax.lax.fori_loop(0, self.gamma, lambda _, phi_c: self.multigrid_cycle(phi_c, rhs_c, False, level + 1), phi_c)
+        phi = jax.lax.fori_loop(0, self.nu2, lambda _, phi: self.red_black_gauss_seidel(phi, rhs, level), phi + self.prolongate(phi_c, level))
 
         return phi
 
