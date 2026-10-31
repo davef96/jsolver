@@ -1102,7 +1102,7 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
 
         (ref_iters, ref_rmse) = (force_iterations, None) if force_iterations > 0 else reference[(testnr, x_res)] if reference_usable else (None, None)
 
-        if (bench_vjp or fixed) and ref_iters is None:
+        if fixed and ref_iters is None:
             raise ValueError("No reference value for number of iterations available for this setup.")
 
         @jax.jit
@@ -1181,8 +1181,8 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
 
             return jax.jvp(f, primals, tangents, True)
 
-        @jax.jit
-        def vjp(primals, cotangent):
+        @partial(jax.jit, static_argnames=('ref_iters'))
+        def vjp(primals, cotangent, ref_iters): # make ref_iters an argument in order to be able to use iters from a solver/jvp run
             """
             Needed since 'jax.jit' needs to be outermost call in order to use '.trace()'.
             Also gives significant speedup.
@@ -1433,6 +1433,8 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
             print(f"GPU memory utilization ({np.median(samples):.0f} samples): {np.median(mem_results):.0f} % (min {np.min(mem_results):.0f}, mean {np.mean(mem_results):.1f}, max {np.max(mem_results):.0f})")
             print(f"GPU memory ({np.median(samples):.0f} samples): {np.median(mem_total_results):.1f} GiB (min {np.min(mem_total_results):.1f}, mean {np.mean(mem_total_results):.2f}, max {np.max(mem_total_results):.1f})")
 
+        iterations = None
+
         if bench_solve:
             curr_time = time.time()
             phi_res, iterations = solve(primals)
@@ -1497,8 +1499,11 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
                 print("repeated jvp call {}: took {} s".format(i, jvp_runs[-1]))
 
         if bench_vjp:
+            if ref_iters is None and iterations is None:
+                raise ValueError("VJP: no reference value for number of iterations available.")
+            vjp_iters = int(iterations if iterations is not None else ref_iters)
             curr_time = time.time()
-            primals_out, cotangents_out, iterations = vjp(primals, cotangent)
+            primals_out, cotangents_out, iterations = vjp(primals, cotangent, vjp_iters)
             jax.block_until_ready(primals_out)
             jax.block_until_ready(cotangents_out)
             vjp_warmup = time.time() - curr_time
@@ -1514,7 +1519,7 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
             vjp_runs = []
             for i in range(1, reps + 1):
                 curr_time = time.time()
-                primals_out, cotangents_out, iterations = vjp(primals, cotangent)
+                primals_out, cotangents_out, iterations = vjp(primals, cotangent, vjp_iters)
                 jax.block_until_ready(primals_out)
                 jax.block_until_ready(cotangents_out)
                 vjp_runs.append(time.time() - curr_time)
@@ -1647,7 +1652,7 @@ def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, benc
 def main():
     parser = argparse.ArgumentParser(
         description="Script to benchmark solver, jvp, and vjp calls.",
-        epilog="Example: python benchmark.py --resolution 64 --type 'c' --reps 5"
+        epilog="Example: python benchmark.py --dims 2 --resolution 64 --type 'c' --reps 5"
     )
 
     parser.add_argument('-r', '--resolution', type=int, default=128,
@@ -1659,7 +1664,7 @@ def main():
     parser.add_argument('-z', '--z_resolution', type=int,
                         help='Resolution value for the z dimension (integer; power of 2).')
     parser.add_argument('--dims', type=int, default=2,
-                        help='Problem dimensionality (integer). Default is 2D.')
+                        help='Problem dimensionality (integer). Default is 2 (i.e., 2D).')
     parser.add_argument('--reps', type=int, default=10,
                         help='Repetitions (runs) of compiled function for each problem (integer). Default is 10.')
     parser.add_argument('--solve', default=True, action=argparse.BooleanOptionalAction,
