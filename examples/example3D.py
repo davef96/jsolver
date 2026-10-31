@@ -38,7 +38,7 @@ prod_x3 = x * ox ** 3
 prod_y = y * oy
 prod_z = z * oz
 phi_ana = prod_x3 * prod_y * prod_z
-rhs = -6 * ox * (ox - x) * prod_y * prod_z - 2 * prod_x3 * prod_z - 2 * prod_x3 * prod_y 
+rhs = -6 * ox * (ox - x) * prod_y * prod_z - 2 * prod_x3 * prod_z - 2 * prod_x3 * prod_y
 
 # solve problem
 curr_time = time.time()

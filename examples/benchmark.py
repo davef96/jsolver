@@ -4,6 +4,7 @@ import numpy as np
 #from jax.test_util import check_grads
 from jsolver.grid_1d import grid_1D
 from jsolver.solver_2d import solve_2d_simple, solve_2d_fixed_simple, solve_2d_fixed_fcycle_simple, solve_2d_fcycle_simple, solve_2d_fixed_wcycle_simple, solve_2d_wcycle_simple, solve_2d_fcycle_skip_pre_simple, solve_2d_skip_pre_simple, solve_2d_wcycle_skip_pre_simple, solve_2d_fixed_skip_pre_simple, solve_2d_fixed_fcycle_skip_pre_simple, solve_2d_fixed_wcycle_skip_pre_simple # benchmark 2D solver
+from jsolver.solver_3d import solve_3d_simple, solve_3d_fixed_simple, solve_3d_fixed_fcycle_simple, solve_3d_fcycle_simple, solve_3d_fixed_wcycle_simple, solve_3d_wcycle_simple, solve_3d_fcycle_skip_pre_simple, solve_3d_skip_pre_simple, solve_3d_wcycle_skip_pre_simple, solve_3d_fixed_skip_pre_simple, solve_3d_fixed_fcycle_skip_pre_simple, solve_3d_fixed_wcycle_skip_pre_simple # benchmark 3D solver
 import time
 #import timeit
 import argparse
@@ -630,7 +631,7 @@ reference_wskip = {
     (11, 16384): (59, 2.386478605444075e-09),
 }
 
-def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True, bench_jvp=True, bench_vjp=True, reps=10, reps_details=1, reps_util=1, reps_transfer=10, isolate=0, skip=0, cutoff=0, start=0, problem_type=None, export=False, save_result=False, file_prefix=None, file_suffix=None, scalar_lambda=True, fcycle=False, wcycle=False, timestamp=False, jit_details=False, details_only=False, cpu_utilization=False, gpu_utilization=False, fixed=False, remat=False, force_iterations=0, smi=False, export_internals=False, lowering_debug=False, bench_transfer=False, transfer_only=False, max_mem=False, flops_new=False, skip_pre=False):
+def bench(x_res, y_res, z_res=None, print_result=False, check_result=False, bench_solve=True, bench_jvp=True, bench_vjp=True, reps=10, reps_details=1, reps_util=1, reps_transfer=10, isolate=0, skip=0, cutoff=0, start=0, problem_type=None, export=False, save_result=False, file_prefix=None, file_suffix=None, scalar_lambda=True, fcycle=False, wcycle=False, timestamp=False, jit_details=False, details_only=False, cpu_utilization=False, gpu_utilization=False, fixed=False, remat=False, force_iterations=0, smi=False, export_internals=False, lowering_debug=False, bench_transfer=False, transfer_only=False, max_mem=False, flops_new=False, skip_pre=False):
     def initialize_psutil():
         """Initializes the psutil library if available.
 
@@ -724,7 +725,8 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
         reference = reference_fskip if fcycle else reference_wskip if wcycle else reference_vskip
     else:
         reference = reference_f if fcycle else reference_w if wcycle else reference_v
-    reference_usable = x_res == y_res and x_res >= 8 and x_res <= 16384 and reference is not None
+    reference_usable = x_res == y_res and x_res >= 8 and x_res <= 16384 and reference is not None and z_res is None #TODO: when adding 3D refs
+    str_dim = ""#"3D " if z_res is not None else "2D "
     str_cycle = " (F-cycle)" if fcycle else " (W-cycle)" if wcycle else " (V-cycle)"
     str_skip = "; skip_pre" if skip_pre else ""
 
@@ -733,14 +735,14 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
     file_suffix = "" if file_suffix is None else "_" + file_suffix
 
     if reference_usable and fixed:
-        print(f"mode: FIXED{str_cycle}{str_skip}")
+        print(f"mode: {str_dim}FIXED{str_cycle}{str_skip}")
     elif force_iterations > 0:
         fixed = True
-        print(f"mode: FIXED{str_cycle}{str_skip}; enforcing {force_iterations} iterations")
+        print(f"mode: {str_dim}FIXED{str_cycle}{str_skip}; enforcing {force_iterations} iterations")
     elif not reference_usable and fixed:
         raise ValueError("No reference value available. Cannot use mode FIXED.")
     else:
-        print(f"mode: DYNAMIC{str_cycle}{str_skip}")
+        print(f"mode: {str_dim}DYNAMIC{str_cycle}{str_skip}")
 
     begin = time.time()
 
@@ -782,217 +784,272 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
 
     grid_x = grid_1D(mx=x_res, xb=0., xe=1., rim=1, grid_type=0, centered=True)
     grid_y = grid_1D(mx=y_res, xb=0., xe=1., rim=1, grid_type=0, centered=True)
+    if z_res is not None:
+        grid_z = grid_1D(mx=z_res, xb=0., xe=1., rim=1, grid_type=0, centered=True)
 
     print("creating grid objects took {} s".format(time.time() - curr_time))
 
     curr_time = time.time()
 
-    arr_shape = (y_res + 3, x_res + 3)
+    arr_shape = (y_res + 3, x_res + 3) if z_res is None else (z_res + 3, y_res + 3, x_res + 3)
     phi = np.zeros(arr_shape)
 
     problems = []
 
-    # test 1 (constant diffusion)
-    if 1 in problem_ids:
-        D_xx = 1.0
-        D_yy = 1.0
-        x = grid_x.centers[np.newaxis]
-        y = grid_y.centers[:, np.newaxis]
-        ox = 1. - x
-        oy = 1. - y
-        prod_x3 = x * ox ** 3
-        prod_y = y * oy
-        phi_ana = prod_x3 * prod_y
-        lam = 0. if scalar_lambda else np.zeros(arr_shape)
-        rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
+    if z_res is None: # 2D tests
+        # test 1 (constant diffusion)
+        if 1 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1.0
+            x = grid_x.centers[np.newaxis]
+            y = grid_y.centers[:, np.newaxis]
+            ox = 1. - x
+            oy = 1. - y
+            prod_x3 = x * ox ** 3
+            prod_y = y * oy
+            phi_ana = prod_x3 * prod_y
+            lam = 0. if scalar_lambda else np.zeros(arr_shape)
+            rhs = -2 * prod_x3 - 6 * ox * (ox - x) * prod_y
 
-        problems.append((1, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
+            problems.append((1, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 
-    # Expected (test 1):
-    # Number of iterations: 13
-    # rmse for 128 is 1.010315424011278e-06
-    # result here: 1.010315424011275e-06
+        # Expected (test 1):
+        # Number of iterations: 13
+        # rmse for 128 is 1.010315424011278e-06
+        # result here: 1.010315424011275e-06
 
-    # test 2 (constant diffusion)
-    if 2 in problem_ids:
-        D_xx = 1.0
-        D_yy = 1.0
-        sy = np.sin(np.pi * grid_y.centers)[:, np.newaxis]
-        sx = np.sin(np.pi * grid_x.centers)[np.newaxis]
-        phi_ana = sx * sy
-        lam = 0. if scalar_lambda else np.zeros(arr_shape)
-        rhs = -(np.pi ** 2) * (D_xx + D_yy) * phi_ana
+        # test 2 (constant diffusion)
+        if 2 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1.0
+            sy = np.sin(np.pi * grid_y.centers)[:, np.newaxis]
+            sx = np.sin(np.pi * grid_x.centers)[np.newaxis]
+            phi_ana = sx * sy
+            lam = 0. if scalar_lambda else np.zeros(arr_shape)
+            rhs = -(np.pi ** 2) * (D_xx + D_yy) * phi_ana
 
-        problems.append((2, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
+            problems.append((2, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 
-    # Expected (test 2):
-    # Number of iterations: 14
-    # rmse for 128 is 2.490588070275737e-05
-    # result here: 2.490588070275727e-05
+        # Expected (test 2):
+        # Number of iterations: 14
+        # rmse for 128 is 2.490588070275737e-05
+        # result here: 2.490588070275727e-05
 
-    # test 3 (spatial diffusion)
-    if 3 in problem_ids:
-        sy = np.sin(np.pi * grid_y.centers)[:, np.newaxis]
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        cx = np.cos(np.pi * x)
-        D_xx = np.full(arr_shape, x)
-        D_yy = np.full(arr_shape, x)
-        phi_ana = sx * sy
-        lam = 0. if scalar_lambda else np.zeros(arr_shape)
-        rhs = np.pi * cx * sy - 2 * np.pi ** 2 * x * phi_ana
+        # test 3 (spatial diffusion)
+        if 3 in problem_ids:
+            sy = np.sin(np.pi * grid_y.centers)[:, np.newaxis]
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            cx = np.cos(np.pi * x)
+            D_xx = np.full(arr_shape, x)
+            D_yy = np.full(arr_shape, x)
+            phi_ana = sx * sy
+            lam = 0. if scalar_lambda else np.zeros(arr_shape)
+            rhs = np.pi * cx * sy - 2 * np.pi ** 2 * x * phi_ana
 
-        problems.append((3, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
+            problems.append((3, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 
-    # Expected (test 3):
-    # Number of iterations: 41
-    # rmse for 128 is 2.197736631958706e-05
-    # result here: 2.197736631958708e-05
+        # Expected (test 3):
+        # Number of iterations: 41
+        # rmse for 128 is 2.197736631958706e-05
+        # result here: 2.197736631958708e-05
 
-    # test 4 (spatial diffusion with lambda)
-    if 4 in problem_ids:
-        y = grid_y.centers[:, np.newaxis]
-        sy = np.sin(np.pi * y)
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        D_xx = np.full(arr_shape, x)
-        D_yy = np.zeros(arr_shape) + y
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        xysum = x + y
-        rhs = np.pi * np.sin(np.pi * xysum) - (xysum * np.pi ** 2 + lam) * phi_ana
+        # test 4 (spatial diffusion with lambda)
+        if 4 in problem_ids:
+            y = grid_y.centers[:, np.newaxis]
+            sy = np.sin(np.pi * y)
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            D_xx = np.full(arr_shape, x)
+            D_yy = np.zeros(arr_shape) + y
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            xysum = x + y
+            rhs = np.pi * np.sin(np.pi * xysum) - (xysum * np.pi ** 2 + lam) * phi_ana
 
-        problems.append((4, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
+            problems.append((4, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 
-    # Expected (test 4):
-    # Number of iterations: 468
-    # rmse for 128 is 2.179081815661214e-05
-    # result here: 2.179081815661213e-05
+        # Expected (test 4):
+        # Number of iterations: 468
+        # rmse for 128 is 2.179081815661214e-05
+        # result here: 2.179081815661213e-05
 
-    # test 5 (constant diffusion with lambda)
-    if 5 in problem_ids:
-        D_xx = 1.0
-        D_yy = 1e-2
-        x = grid_x.centers[np.newaxis]
-        y = grid_y.centers[:, np.newaxis]
-        sx = np.sin(np.pi * x)
-        sy = np.sin(np.pi * y)
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        rhs = -((np.pi ** 2) * (D_xx + D_yy) + lam) * phi_ana
+        # test 5 (constant diffusion with lambda)
+        if 5 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1e-2
+            x = grid_x.centers[np.newaxis]
+            y = grid_y.centers[:, np.newaxis]
+            sx = np.sin(np.pi * x)
+            sy = np.sin(np.pi * y)
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            rhs = -((np.pi ** 2) * (D_xx + D_yy) + lam) * phi_ana
 
-        problems.append((5, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
+            problems.append((5, phi_ana, phi, lam, rhs, D_xx, D_yy, None))
 
-    # Expected (test 5):
-    # Number of iterations: 208
-    # rmse for 128 is 2.483558318071642e-05
-    # result here: 2.483558318071646e-05
+        # Expected (test 5):
+        # Number of iterations: 208
+        # rmse for 128 is 2.483558318071642e-05
+        # result here: 2.483558318071646e-05
 
-    # test 7 (spatial diffusion with off-diagonal component)
-    if 7 in problem_ids:
-        c = 0.1
-        y = grid_y.centers[:, np.newaxis]
-        sy = np.sin(np.pi * y)
-        cy = np.cos(np.pi * y)
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        cx = np.cos(np.pi * x)
-        D_xx = np.full(arr_shape, x)
-        D_yy = np.zeros(arr_shape) + y
-        D_xy = np.full(arr_shape, c * x)
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        rhs = (1. + c) * np.pi * sx * cy + np.pi * cx * sy + c * 2. * x * np.pi ** 2 * cx * cy - ((x + y) * np.pi ** 2 + lam) * phi_ana
+        # test 7 (spatial diffusion with off-diagonal component)
+        if 7 in problem_ids:
+            c = 0.1
+            y = grid_y.centers[:, np.newaxis]
+            sy = np.sin(np.pi * y)
+            cy = np.cos(np.pi * y)
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            cx = np.cos(np.pi * x)
+            D_xx = np.full(arr_shape, x)
+            D_yy = np.zeros(arr_shape) + y
+            D_xy = np.full(arr_shape, c * x)
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            rhs = (1. + c) * np.pi * sx * cy + np.pi * cx * sy + c * 2. * x * np.pi ** 2 * cx * cy - ((x + y) * np.pi ** 2 + lam) * phi_ana
 
-        problems.append((7, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
+            problems.append((7, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
 
-    # Expected (test 7):
-    # Number of iterations: 466
-    # rmse for 128 is 2.291672360185362e-05
-    # result here: 2.291672360362869e-05 (+1.775069349320424e-15)
+        # Expected (test 7):
+        # Number of iterations: 466
+        # rmse for 128 is 2.291672360185362e-05
+        # result here: 2.291672360362869e-05 (+1.775069349320424e-15)
 
-    # test 9 (spatial diffusion with off-diagonal component)
-    if 9 in problem_ids:
-        c = 0.5
-        y = grid_y.centers[:, np.newaxis]
-        sy = np.sin(np.pi * y)
-        cy = np.cos(np.pi * y)
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        cx = np.cos(np.pi * x)
-        D_xx = np.full(arr_shape, x)
-        D_yy = np.zeros(arr_shape) + y
-        D_xy = c * x * y
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        rhs = (1 + c * x) * np.pi * cx * sy + (1 + c * y) * np.pi * sx * cy + c * 2 * x * y * np.pi ** 2 * cx * cy - ((x + y) * np.pi ** 2 + lam) * phi_ana
+        # test 9 (spatial diffusion with off-diagonal component)
+        if 9 in problem_ids:
+            c = 0.5
+            y = grid_y.centers[:, np.newaxis]
+            sy = np.sin(np.pi * y)
+            cy = np.cos(np.pi * y)
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            cx = np.cos(np.pi * x)
+            D_xx = np.full(arr_shape, x)
+            D_yy = np.zeros(arr_shape) + y
+            D_xy = c * x * y
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            rhs = (1 + c * x) * np.pi * cx * sy + (1 + c * y) * np.pi * sx * cy + c * 2 * x * y * np.pi ** 2 * cx * cy - ((x + y) * np.pi ** 2 + lam) * phi_ana
 
-        problems.append((9, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
+            problems.append((9, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
 
-    # Expected (test 9):
-    # Number of iterations: 462
-    # rmse for 128 is 2.719754537531388e-05
-    # result here: 2.719754537272108e-05
+        # Expected (test 9):
+        # Number of iterations: 462
+        # rmse for 128 is 2.719754537531388e-05
+        # result here: 2.719754537272108e-05
 
-    # test 10 (spatial diffusion with off-diagonal component)
-    if 10 in problem_ids:
-        c = 0.1
-        y = grid_y.centers[:, np.newaxis]
-        sy = np.sin(np.pi * y)
-        cy = np.cos(np.pi * y)
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        cx = np.cos(np.pi * x)
-        D_xx = np.zeros(arr_shape) + y
-        D_yy = np.zeros(arr_shape) + y
-        D_xy = c * x * y
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        rhs = np.pi * (1 + c * y) * sx * cy + c * x * np.pi * cx * sy + c * 2 * x * y * np.pi ** 2 * cx * cy - (2 * y * np.pi ** 2 + lam) * phi_ana
+        # test 10 (spatial diffusion with off-diagonal component)
+        if 10 in problem_ids:
+            c = 0.1
+            y = grid_y.centers[:, np.newaxis]
+            sy = np.sin(np.pi * y)
+            cy = np.cos(np.pi * y)
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            cx = np.cos(np.pi * x)
+            D_xx = np.zeros(arr_shape) + y
+            D_yy = np.zeros(arr_shape) + y
+            D_xy = c * x * y
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            rhs = np.pi * (1 + c * y) * sx * cy + c * x * np.pi * cx * sy + c * 2 * x * y * np.pi ** 2 * cx * cy - (2 * y * np.pi ** 2 + lam) * phi_ana
 
-        problems.append((10, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
+            problems.append((10, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
 
-    # Expected (test 10):
-    # Number of iterations: 41
-    # rmse for 128 is 2.317202758890556e-05
-    # result here: 2.317202759071838e-05
+        # Expected (test 10):
+        # Number of iterations: 41
+        # rmse for 128 is 2.317202758890556e-05
+        # result here: 2.317202759071838e-05
 
-    # test 11 (spatial diffusion with off-diagonal component; cylinder)
-    if 11 in problem_ids:
-        dpar = 1.
-        dperp = 0.1
-        y = grid_y.centers[:, np.newaxis]
-        sy = np.sin(np.pi * y)
-        cy = np.cos(np.pi * y)
-        x = grid_x.centers[np.newaxis]
-        sx = np.sin(np.pi * x)
-        cx = np.cos(np.pi * x)
-        phi_ana = sx * sy
-        lam = 0.2 * x * y ** 2
-        angle = np.arctan2(y, x)
-        sangle = np.sin(angle)
-        cangle = np.cos(angle)
-        scangle = sangle * cangle
-        sqsangle = sangle ** 2
-        sqcangle = cangle ** 2
-        D_xx = dpar * sqsangle + dperp * sqcangle
-        D_yy = dpar * sqcangle + dperp * sqsangle
-        D_xy = (dperp - dpar) * scangle
-        sqrad = x ** 2 + y ** 2
-        dphi_dx = -y / sqrad
-        dphi_dy = x / sqrad
-        dD_xx_dx = 2 * (dpar - dperp) * scangle * dphi_dx
-        dD_yy_dy = 2 * (dperp - dpar) * scangle * dphi_dy
-        dD_xy_dx = (dperp - dpar) * (sqcangle - sqsangle) * dphi_dx
-        dD_xy_dy = (dperp - dpar) * (sqcangle - sqsangle) * dphi_dy
-        rhs = (dD_yy_dy + dD_xy_dx) * np.pi * sx * cy + (dD_xx_dx + dD_xy_dy) * np.pi * cx * sy + 2 * D_xy * np.pi ** 2 * cx * cy - ((D_xx + D_yy) * np.pi ** 2 + lam) * phi_ana
+        # test 11 (spatial diffusion with off-diagonal component; cylinder)
+        if 11 in problem_ids:
+            dpar = 1.
+            dperp = 0.1
+            y = grid_y.centers[:, np.newaxis]
+            sy = np.sin(np.pi * y)
+            cy = np.cos(np.pi * y)
+            x = grid_x.centers[np.newaxis]
+            sx = np.sin(np.pi * x)
+            cx = np.cos(np.pi * x)
+            phi_ana = sx * sy
+            lam = 0.2 * x * y ** 2
+            angle = np.arctan2(y, x)
+            sangle = np.sin(angle)
+            cangle = np.cos(angle)
+            scangle = sangle * cangle
+            sqsangle = sangle ** 2
+            sqcangle = cangle ** 2
+            D_xx = dpar * sqsangle + dperp * sqcangle
+            D_yy = dpar * sqcangle + dperp * sqsangle
+            D_xy = (dperp - dpar) * scangle
+            sqrad = x ** 2 + y ** 2
+            dphi_dx = -y / sqrad
+            dphi_dy = x / sqrad
+            dD_xx_dx = 2 * (dpar - dperp) * scangle * dphi_dx
+            dD_yy_dy = 2 * (dperp - dpar) * scangle * dphi_dy
+            dD_xy_dx = (dperp - dpar) * (sqcangle - sqsangle) * dphi_dx
+            dD_xy_dy = (dperp - dpar) * (sqcangle - sqsangle) * dphi_dy
+            rhs = (dD_yy_dy + dD_xy_dx) * np.pi * sx * cy + (dD_xx_dx + dD_xy_dy) * np.pi * cx * sy + 2 * D_xy * np.pi ** 2 * cx * cy - ((D_xx + D_yy) * np.pi ** 2 + lam) * phi_ana
 
-        problems.append((11, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
+            problems.append((11, phi_ana, phi, lam, rhs, D_xx, D_yy, D_xy))
 
-    # Expected (test 11):
-    # Number of iterations: 56
-    # rmse for 128 is 3.881907960699822e-05
-    # result here: 3.881907960671440e-05
+        # Expected (test 11):
+        # Number of iterations: 56
+        # rmse for 128 is 3.881907960699822e-05
+        # result here: 3.881907960671440e-05
+    else: # 3D tests
+        if 1 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1.0
+            D_zz = 1.0
+            lam = 0.0
+            phi = np.zeros(arr_shape)
+            x = grid_x.centers[np.newaxis, np.newaxis, :]
+            y = grid_y.centers[np.newaxis, :, np.newaxis]
+            z = grid_z.centers[:, np.newaxis, np.newaxis]
+            ox = 1.0 - x
+            oy = 1.0 - y
+            oz = 1.0 - z
+            prod_x3 = x * ox ** 3
+            prod_y = y * oy
+            prod_z = z * oz
+            phi_ana = prod_x3 * prod_y * prod_z
+            rhs = -6 * ox * (ox - x) * prod_y * prod_z - 2 * prod_x3 * prod_z - 2 * prod_x3 * prod_y
+            problems.append((1, phi_ana, phi, lam, rhs, D_xx, D_yy, D_zz))
+
+        if 2 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1.0
+            D_zz = 1.0
+            phi = np.zeros(arr_shape)
+            lam = 0.0
+            sinx = np.sin(np.pi * grid_x.centers)[np.newaxis, np.newaxis, :]
+            siny = np.sin(np.pi * grid_y.centers)[np.newaxis, :, np.newaxis]
+            sinz = np.sin(np.pi * grid_z.centers)[:, np.newaxis, np.newaxis]
+            phi_ana = sinx * siny * sinz
+            rhs = -(np.pi ** 2) * (D_xx + D_yy + D_zz) * phi_ana
+            problems.append((2, phi_ana, phi, lam, rhs, D_xx, D_yy, D_zz))
+
+        if 5 in problem_ids:
+            D_xx = 1.0
+            D_yy = 1.0
+            D_zz = 1.0
+            phi = np.zeros(arr_shape)
+            x = grid_x.centers[np.newaxis, np.newaxis, :]
+            y = grid_y.centers[np.newaxis, :, np.newaxis]
+            z = grid_z.centers[:, np.newaxis, np.newaxis]
+            lam = 0.2 * x * y ** 2 * z
+            sinx = np.sin(np.pi * x)
+            siny = np.sin(np.pi * y)
+            sinz = np.sin(np.pi * z)
+            phi_ana = sinx * siny * sinz
+            rhs = -((np.pi ** 2) * (D_xx + D_yy + D_zz) + lam) * phi_ana
+            problems.append((5, phi_ana, phi, lam, rhs, D_xx, D_yy, D_zz))
+
+        if any(p in problem_ids for p in [3,4,7,9,10]):
+            raise ValueError("Some selected problems are not supported for 3D.")
+
 
     print("setting up problems took {} s".format(time.time() - curr_time))
 
@@ -1051,44 +1108,76 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
         @jax.jit
         def solve(primals):
             """
-            Note: Local definition leads to recompilation across loop iterations (i.e. between different tests).
+            Note: Local definition leads to recompilation across loop iterations (i.e., between different tests).
             However, since 'ref_iters' is a test-specific constant (corresponds to static arg w.r.t. jit on a global function) there is no way around it.
             Also for functions below!
             """
-            if skip_pre:
-                if fcycle:
-                    return solve_2d_fixed_fcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_skip_pre_simple(grid_x, grid_y, *primals)
-                elif wcycle:
-                    return solve_2d_fixed_wcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_skip_pre_simple(grid_x, grid_y, *primals)
+            if z_res is None:
+                if skip_pre:
+                    if fcycle:
+                        return solve_2d_fixed_fcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_skip_pre_simple(grid_x, grid_y, *primals)
+                    elif wcycle:
+                        return solve_2d_fixed_wcycle_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_skip_pre_simple(grid_x, grid_y, *primals)
+                    else:
+                        return solve_2d_fixed_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_skip_pre_simple(grid_x, grid_y, *primals)
                 else:
-                    return solve_2d_fixed_skip_pre_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_skip_pre_simple(grid_x, grid_y, *primals)
+                    if fcycle:
+                        return solve_2d_fixed_fcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_simple(grid_x, grid_y, *primals)
+                    elif wcycle:
+                        return solve_2d_fixed_wcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_simple(grid_x, grid_y, *primals)
+                    else:
+                        return solve_2d_fixed_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_simple(grid_x, grid_y, *primals)
             else:
-                if fcycle:
-                    return solve_2d_fixed_fcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_fcycle_simple(grid_x, grid_y, *primals)
-                elif wcycle:
-                    return solve_2d_fixed_wcycle_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_wcycle_simple(grid_x, grid_y, *primals)
+                if skip_pre:
+                    if fcycle:
+                        return solve_3d_fixed_fcycle_skip_pre_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_fcycle_skip_pre_simple(grid_x, grid_y, grid_z, *primals)
+                    elif wcycle:
+                        return solve_3d_fixed_wcycle_skip_pre_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_wcycle_skip_pre_simple(grid_x, grid_y, grid_z, *primals)
+                    else:
+                        return solve_3d_fixed_skip_pre_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_skip_pre_simple(grid_x, grid_y, grid_z, *primals)
                 else:
-                    return solve_2d_fixed_simple(grid_x, grid_y, ref_iters, *primals) if fixed else solve_2d_simple(grid_x, grid_y, *primals)
+                    if fcycle:
+                        return solve_3d_fixed_fcycle_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_fcycle_simple(grid_x, grid_y, grid_z, *primals)
+                    elif wcycle:
+                        return solve_3d_fixed_wcycle_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_wcycle_simple(grid_x, grid_y, grid_z, *primals)
+                    else:
+                        return solve_3d_fixed_simple(grid_x, grid_y, grid_z, ref_iters, *primals) if fixed else solve_3d_simple(grid_x, grid_y, grid_z, *primals)
 
         @jax.jit
         def jvp(primals, tangents):
             """
             Needed since 'jax.jit' needs to be outermost call in order to use '.trace()'.
             """
-            if skip_pre:
-                if fcycle:
-                    f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_skip_pre_simple, grid_x, grid_y)
-                elif wcycle:
-                    f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_skip_pre_simple, grid_x, grid_y)
+            if z_res is None:
+                if skip_pre:
+                    if fcycle:
+                        f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_skip_pre_simple, grid_x, grid_y)
+                    elif wcycle:
+                        f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_skip_pre_simple, grid_x, grid_y)
+                    else:
+                        f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_skip_pre_simple, grid_x, grid_y)
                 else:
-                    f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_skip_pre_simple, grid_x, grid_y)
+                    if fcycle:
+                        f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_simple, grid_x, grid_y)
+                    elif wcycle:
+                        f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_simple, grid_x, grid_y)
+                    else:
+                        f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_simple, grid_x, grid_y)
             else:
-                if fcycle:
-                    f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_fcycle_simple, grid_x, grid_y)
-                elif wcycle:
-                    f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_wcycle_simple, grid_x, grid_y)
+                if skip_pre:
+                    if fcycle:
+                        f = partial(solve_3d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_fcycle_skip_pre_simple, grid_x, grid_y, grid_z)
+                    elif wcycle:
+                        f = partial(solve_3d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_wcycle_skip_pre_simple, grid_x, grid_y, grid_z)
+                    else:
+                        f = partial(solve_3d_fixed_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_skip_pre_simple, grid_x, grid_y, grid_z)
                 else:
-                    f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters) if fixed else partial(solve_2d_simple, grid_x, grid_y)
+                    if fcycle:
+                        f = partial(solve_3d_fixed_fcycle_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_fcycle_simple, grid_x, grid_y, grid_z)
+                    elif wcycle:
+                        f = partial(solve_3d_fixed_wcycle_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_wcycle_simple, grid_x, grid_y, grid_z)
+                    else:
+                        f = partial(solve_3d_fixed_simple, grid_x, grid_y, grid_z, ref_iters) if fixed else partial(solve_3d_simple, grid_x, grid_y, grid_z)
 
             return jax.jvp(f, primals, tangents, True)
 
@@ -1098,20 +1187,36 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
             Needed since 'jax.jit' needs to be outermost call in order to use '.trace()'.
             Also gives significant speedup.
             """
-            if skip_pre:
-                if fcycle:
-                    f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
-                elif wcycle:
-                    f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
+            if z_res is None:
+                if skip_pre:
+                    if fcycle:
+                        f = partial(solve_2d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
+                    elif wcycle:
+                        f = partial(solve_2d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, ref_iters)
+                    else:
+                        f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters)
                 else:
-                    f = partial(solve_2d_fixed_skip_pre_simple, grid_x, grid_y, ref_iters)
+                    if fcycle:
+                        f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters)
+                    elif wcycle:
+                        f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters)
+                    else:
+                        f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters)
             else:
-                if fcycle:
-                    f = partial(solve_2d_fixed_fcycle_simple, grid_x, grid_y, ref_iters)
-                elif wcycle:
-                    f = partial(solve_2d_fixed_wcycle_simple, grid_x, grid_y, ref_iters)
+                if skip_pre:
+                    if fcycle:
+                        f = partial(solve_3d_fixed_fcycle_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters)
+                    elif wcycle:
+                        f = partial(solve_3d_fixed_wcycle_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters)
+                    else:
+                        f = partial(solve_3d_fixed_skip_pre_simple, grid_x, grid_y, grid_z, ref_iters)
                 else:
-                    f = partial(solve_2d_fixed_simple, grid_x, grid_y, ref_iters)
+                    if fcycle:
+                        f = partial(solve_3d_fixed_fcycle_simple, grid_x, grid_y, grid_z, ref_iters)
+                    elif wcycle:
+                        f = partial(solve_3d_fixed_wcycle_simple, grid_x, grid_y, grid_z, ref_iters)
+                    else:
+                        f = partial(solve_3d_fixed_simple, grid_x, grid_y, grid_z, ref_iters)
 
             g = jax.checkpoint(f)
 
@@ -1335,7 +1440,7 @@ def bench(x_res, y_res, print_result=False, check_result=False, bench_solve=True
             solver_warmup = time.time() - curr_time
             print("initial call: solved problem in {} s".format(solver_warmup))
 
-            error = (phi_ana - phi_res)[1:-1,1:-1]
+            error = (phi_ana - phi_res)[1:-1,1:-1] if z_res is None else (phi_ana - phi_res)[1:-1,1:-1,1:-1]
             rmse = np.linalg.norm(error) / np.sqrt(error.size)
 
             if print_result:
@@ -1551,6 +1656,10 @@ def main():
                         help='Resolution value for the x dimension (integer; power of 2).')
     parser.add_argument('-y', '--y_resolution', type=int,
                         help='Resolution value for the y dimension (integer; power of 2).')
+    parser.add_argument('-z', '--z_resolution', type=int,
+                        help='Resolution value for the z dimension (integer; power of 2).')
+    parser.add_argument('--dims', type=int, default=2,
+                        help='Problem dimensionality (integer). Default is 2D.')
     parser.add_argument('--reps', type=int, default=10,
                         help='Repetitions (runs) of compiled function for each problem (integer). Default is 10.')
     parser.add_argument('--solve', default=True, action=argparse.BooleanOptionalAction,
@@ -1584,11 +1693,11 @@ def main():
     parser.add_argument('--fixed', default=False, action=argparse.BooleanOptionalAction,
                         help='Use fixed number of iterations for solve/jvp (looked up from hardcoded dictionary). Default is False.')
     parser.add_argument('--remat', default=False, action=argparse.BooleanOptionalAction,
-                        help='Use checkpointed function for vjp, i.e. use rematerialization strategy. Default is False.')
+                        help='Use checkpointed function for vjp, i.e., use rematerialization strategy. Default is False.')
     parser.add_argument('--smi', default=False, action=argparse.BooleanOptionalAction,
                         help='Initialize tracking for jax-smi. Default is False.')
     parser.add_argument('--internals', default=False, action=argparse.BooleanOptionalAction,
-                        help='Export internals (i.e. intermediate representations during JIT process) when details are investigated. Default is False.')
+                        help='Export internals (i.e., intermediate representations during JIT process) when details are investigated. Default is False.')
     parser.add_argument('--lowerd', default=False, action=argparse.BooleanOptionalAction,
                         help='Add debug information when exporting lowering IR. Default is False.')
     parser.add_argument('--transfer', default=False, action=argparse.BooleanOptionalAction,
@@ -1598,7 +1707,7 @@ def main():
     parser.add_argument('--max', default=False, action=argparse.BooleanOptionalAction,
                         help='Use maximum instead of mean to aggregate memory consumption samples. Default is False.')
     parser.add_argument('--new', default=False, action=argparse.BooleanOptionalAction,
-                        help='Adapt datastructures for latest jax version (e.g. cost[\'flops\']). Default is False.')
+                        help='Adapt datastructures for latest jax version (e.g., cost[\'flops\']). Default is False.')
     parser.add_argument('--dreps', type=int, default=1,
                         help='Repetitions (runs) of JIT details (integer). Default is 1.')
     parser.add_argument('--ureps', type=int, default=1,
@@ -1616,30 +1725,32 @@ def main():
     parser.add_argument('-p', '--prefix', type=str, default=None,
                         help='Prefix for CSV file names. Default is None.')
     parser.add_argument('-i', '--isolate', type=int, default=0,
-                        help='Isolate a specific problem (integer; e.g. 2 to only run problem with id 2). Default is 0 (run all problems).')
+                        help='Isolate a specific problem (integer; e.g., 2 to only run problem with id 2). Default is 0 (run all problems).')
     parser.add_argument('--skip', type=int, default=0,
-                        help='Skip a specific problem (integer; e.g. 2 to skip problem with id 2). Default is 0 (run all problems).')
+                        help='Skip a specific problem (integer; e.g., 2 to skip problem with id 2). Default is 0 (run all problems).')
     parser.add_argument('-c', '--cutoff', type=int, default=0,
                         help='Benchmarks problems up to cutoff (integer; inclusive). Default is 0 (run all problems).')
     parser.add_argument('--start', type=int, default=0,
                         help='Benchmarks problems starting from start (integer; inclusive). Default is 0 (run all problems).')
     parser.add_argument('-t', '--type', type=str, default=None,
-                        help='Benchmark only problems of the given type: "c" for spatially-constant diffusion, "s" for spatially-varying diffusion, or "o" for spatially-varying diffusion with off-diagonal component. Default is None (run all problems).')
+                        help='Benchmark only problems of the given type: "c" for spatially constant diffusion, "s" for spatially varying diffusion, or "o" for spatially varying diffusion with off-diagonal component. Default is None (run all problems).')
 
     args = parser.parse_args()
 
     x_res = args.x_resolution if args.x_resolution is not None else args.resolution
     y_res = args.y_resolution if args.y_resolution is not None else args.resolution
+    z_res = args.z_resolution if args.y_resolution is not None else args.resolution if args.dims == 3 else None
 
     if x_res <= 0 or y_res <= 0 or args.reps < 0 or args.dreps < 1 or args.ureps < 1 or args.treps < 1 or args.iters < 0 or args.isolate < 0 or args.cutoff < 0 or args.skip < 0 or args.start < 0:
-        parser.error("All integer arguments must be sensible (e.g. non-negative)!")
+        parser.error("All integer arguments must be sensible (e.g., non-negative)!")
 
-    print(f"Resolution is set to: x={x_res}, y={y_res}")
+    str_zres = f", z={z_res}" if z_res is not None else ""
+    print(f"Resolution is set to: x={x_res}, y={y_res}{str_zres}")
 
     details = args.details or args.details_only
     transfer = args.transfer or args.transfer_only
 
-    bench(x_res, y_res, print_result=args.print, check_result=args.check, bench_solve=args.solve, bench_jvp=args.jvp, bench_vjp=args.vjp, reps=args.reps, isolate=args.isolate, skip=args.skip, cutoff=args.cutoff, start=args.start, export=args.export, save_result=args.save, file_prefix=args.prefix, file_suffix=args.suffix, problem_type=args.type, scalar_lambda=args.scalar, fcycle=args.fcycle, wcycle=args.wcycle, timestamp=args.timestamp, jit_details=details, reps_details=args.dreps, details_only=args.details_only, cpu_utilization=args.util, gpu_utilization=args.gutil, reps_util=args.ureps, fixed=args.fixed, remat=args.remat, force_iterations=args.iters, smi=args.smi, export_internals=args.internals, bench_transfer=transfer, transfer_only=args.transfer_only, reps_transfer=args.treps, max_mem=args.max, lowering_debug=args.lowerd, flops_new=args.new, skip_pre=args.skip_pre)
+    bench(x_res, y_res, z_res, print_result=args.print, check_result=args.check, bench_solve=args.solve, bench_jvp=args.jvp, bench_vjp=args.vjp, reps=args.reps, isolate=args.isolate, skip=args.skip, cutoff=args.cutoff, start=args.start, export=args.export, save_result=args.save, file_prefix=args.prefix, file_suffix=args.suffix, problem_type=args.type, scalar_lambda=args.scalar, fcycle=args.fcycle, wcycle=args.wcycle, timestamp=args.timestamp, jit_details=details, reps_details=args.dreps, details_only=args.details_only, cpu_utilization=args.util, gpu_utilization=args.gutil, reps_util=args.ureps, fixed=args.fixed, remat=args.remat, force_iterations=args.iters, smi=args.smi, export_internals=args.internals, bench_transfer=transfer, transfer_only=args.transfer_only, reps_transfer=args.treps, max_mem=args.max, lowering_debug=args.lowerd, flops_new=args.new, skip_pre=args.skip_pre)
 
 if __name__ == "__main__":
     main()
